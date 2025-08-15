@@ -1,0 +1,70 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
+import time
+
+class SeleniumManager:
+    @staticmethod
+    def create_driver(headless=True, additional_options=None):
+        """Chrome 드라이버 생성"""
+        options = Options()
+        
+        if headless:
+            options.add_argument('--headless')
+        
+        # 기본 옵션
+        options.add_argument('--disable-gpu')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--window-size=1920x1080')
+        
+        # 추가 옵션이 있으면 적용
+        if additional_options:
+            for option in additional_options:
+                options.add_argument(option)
+        
+        # 드라이버 생성
+        driver = webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()), 
+            options=options
+        )
+        
+        return driver
+    
+    @staticmethod
+    def scrape_news(url, selector, max_items=5, wait_time=2):
+        """뉴스 스크래핑 공통 함수"""
+        driver = SeleniumManager.create_driver()
+        
+        try:
+            driver.get(url)
+            time.sleep(wait_time)
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            a_tags = soup.select(selector)
+            
+            news_list = [
+                {"title": a.text.strip(), "link": a['href']} 
+                for a in a_tags[:max_items]
+            ]
+            
+            return news_list
+            
+        finally:
+            driver.quit()
+    
+    @staticmethod
+    def scrape_with_custom_logic(url, custom_function, wait_time=2):
+        """커스텀 로직으로 스크래핑"""
+        driver = SeleniumManager.create_driver()
+        
+        try:
+            driver.get(url)
+            time.sleep(wait_time)
+            
+            return custom_function(driver)
+            
+        finally:
+            driver.quit()
