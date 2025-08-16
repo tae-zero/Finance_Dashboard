@@ -32,15 +32,8 @@ RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_a
     && rm google-chrome-stable_current_amd64.deb \
     && rm -rf /var/lib/apt/lists/*
 
-# ChromeDriver 설치 (고정 버전)
-RUN wget -q https://chromedriver.storage.googleapis.com/120.0.6099.109/chromedriver_linux64.zip \
-    && unzip chromedriver_linux64.zip -d /usr/local/bin/ \
-    && rm chromedriver_linux64.zip \
-    && chmod +x /usr/local/bin/chromedriver
-
 # 환경변수 설정
 ENV CHROME_BIN=/usr/bin/google-chrome
-ENV CHROMEDRIVER_PATH=/usr/local/bin/chromedriver
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
