@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios from 'axios';
 
 const API_BASE_URL = '/api';   // Vercel rewrites 통로
 const API_PREFIX   = '/v1';    // 버전 별도 관리
@@ -7,79 +7,10 @@ const API_PREFIX   = '/v1';    // 버전 별도 관리
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
-  // 전역 headers는 최소화 (프리플라이트 줄이기)
 });
 
-// 절대 URL이면 상대 URL로 강제 변환 (브라우저에서만)
-function toRelativeIfAbsolute(config: AxiosRequestConfig) {
-  const u = config.url || '';
-  if (typeof window !== 'undefined' && /^https?:\/\//i.test(u)) {
-    try {
-      const parsed = new URL(u);
-      config.url = parsed.pathname + parsed.search; // /api/... 형태만 남김
-      config.baseURL = API_BASE_URL;
-      console.warn('[api] Rewrote absolute URL to relative:', config.url);
-    } catch {
-      // ignore
-    }
-  }
-}
-
-axiosInstance.interceptors.request.use(
-  (config) => {
-    toRelativeIfAbsolute(config);
-
-    const method = (config.method || 'get').toLowerCase();
-    const hasBody = ['post', 'put', 'patch', 'delete'].includes(method) && config.data != null;
-
-    // 바디가 있는 요청에만 Content-Type 지정
-    if (hasBody) {
-      if (!config.headers) {
-        config.headers = {} as any;
-      }
-      config.headers['Content-Type'] = 'application/json';
-    }
-    // 커스텀 헤더(X-Requested-With 등) 추가 금지
-
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-axiosInstance.interceptors.response.use(
-  (res) => res,
-  (error) => {
-    console.error('API 오류:', error);
-    if (error?.response?.status === 503) {
-      console.warn('외부 서비스 일시적 오류');
-    }
-    return Promise.reject(error);
-  }
-);
-
-// API 객체 정의
-const api = {
-  get: (url: string, config?: any) => {
-    console.log('[api] GET 요청:', url);
-    return axiosInstance.get(url, config);
-  },
-  post: (url: string, data?: any, config?: any) => {
-    console.log('[api] POST 요청:', url);
-    return axiosInstance.post(url, data, config);
-  },
-  put: (url: string, data?: any, config?: any) => {
-    console.log('[api] PUT 요청:', url);
-    return axiosInstance.put(url, data, config);
-  },
-  delete: (url: string, config?: any) => {
-    console.log('[api] DELETE 요청:', url);
-    return axiosInstance.delete(url, config);
-  },
-  patch: (url: string, data?: any, config?: any) => {
-    console.log('[api] PATCH 요청:', url);
-    return axiosInstance.patch(url, data, config);
-  }
-};
+// API 객체를 직접 axios 인스턴스로 export
+const api = axiosInstance;
 
 // 엔드포인트
 export const API_ENDPOINTS = {

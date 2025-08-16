@@ -56,10 +56,14 @@ function Dashboard() {
     const fetchData = async () => {
       // API 객체 확인
       console.log("🔍 API 객체 확인:", api);
+      console.log("🔍 API 객체 타입:", typeof api);
+      console.log("🔍 API 객체의 get 메서드:", api?.get);
       console.log("🔍 API_ENDPOINTS 확인:", API_ENDPOINTS);
       
       if (!api || typeof api.get !== 'function') {
         console.error("❌ API 객체가 올바르게 로드되지 않았습니다:", api);
+        console.error("❌ API 객체 타입:", typeof api);
+        console.error("❌ API 객체의 get 메서드:", api?.get);
         return;
       }
 

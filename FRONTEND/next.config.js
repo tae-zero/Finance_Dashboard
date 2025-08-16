@@ -38,6 +38,22 @@ const nextConfig = {
   experimental: {
     esmExternals: false,
   },
+  // CORS 프리플라이트 요청 처리
+  async redirects() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://financedashboard-production-50f3.up.railway.app/api/:path*',
+        permanent: false,
+        has: [
+          {
+            type: 'method',
+            value: 'OPTIONS',
+          },
+        ],
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig
