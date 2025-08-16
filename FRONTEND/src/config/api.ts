@@ -1,25 +1,39 @@
 import axios from 'axios';
 
 // API 기본 설정
-const API_BASE_URL = '/api/v1';  // 프록시 사용
+const API_BASE_URL = '/api/v1';  // 상대 경로 사용
 
 // Axios 인스턴스 생성
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   }
 });
 
-// 응답 인터셉터 추가
+// 응답 인터셉터
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     console.error('API 오류:', error);
+    
     if (error.response?.status === 503) {
-      console.warn('외부 서비스 일시적 오류, 캐시된 데이터 사용');
+      console.warn('외부 서비스 일시적 오류');
     }
+    
+    return Promise.reject(error);
+  }
+);
+
+// 요청 인터셉터
+api.interceptors.request.use(
+  (config) => {
+    // 요청 설정 수정
+    config.headers['X-Requested-With'] = 'XMLHttpRequest';
+    return config;
+  },
+  (error) => {
     return Promise.reject(error);
   }
 );
