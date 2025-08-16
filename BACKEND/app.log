@@ -207,3 +207,23 @@
 2025-08-16 20:28:17,739 - startup - INFO - ⚠️ 환경변수 PORT 무시하고 강제로 7000 사용
 2025-08-16 20:28:17,775 - api - INFO - 설정된 CORS Origins: ['https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app', 'https://finance-dashboard.vercel.app', 'http://localhost:3000']
 2025-08-16 20:28:17,864 - api - INFO - ✅ 앱 초기화 완료
+2025-08-16 20:32:41,143 - startup - INFO - 🔄 서비스 초기화 중...
+2025-08-16 20:32:41,143 - startup - INFO - ✅ 기본 패키지 확인 완료
+2025-08-16 20:32:41,143 - startup - WARNING - ⚠️ API_KEY 환경변수가 설정되지 않았습니다
+2025-08-16 20:32:41,144 - startup - WARNING - ⚠️ NICE_API_KEY 환경변수가 설정되지 않았습니다
+2025-08-16 20:32:41,144 - startup - INFO - ✅ 환경변수 확인 완료
+2025-08-16 20:32:41,427 - database - INFO - ✅ MongoDB 연결 성공!
+2025-08-16 20:32:41,427 - database - INFO - ✅ 데이터베이스 'testDB' 선택됨
+2025-08-16 20:32:41,428 - startup - INFO - ✅ MongoDB 연결 성공
+2025-08-16 20:32:41,429 - startup - INFO - ✅ 데이터 프로세서 초기화 완료
+2025-08-16 20:32:41,429 - startup - INFO - ✅ Selenium 초기화 완료 (지연 초기화)
+2025-08-16 20:32:41,503 - startup - INFO - ✅ pykrx 연결 테스트 성공
+2025-08-16 20:32:41,503 - startup - INFO - ✅ pykrx 초기화 성공
+2025-08-16 20:32:43,848 - yfinance - ERROR - 429 Client Error: Too Many Requests for url: https://query2.finance.yahoo.com/v10/finance/quoteSummary/005930.KS?modules=financialData%2CquoteType%2CdefaultKeyStatistics%2CassetProfile%2CsummaryDetail&corsDomain=finance.yahoo.com&formatted=false&symbol=005930.KS&crumb=Edge%3A+Too+Many+Requests
+2025-08-16 20:32:45,370 - startup - WARNING - ⚠️ yfinance 초기화 실패: Expecting value: line 1 column 1 (char 0)
+2025-08-16 20:32:45,371 - startup - INFO - ✅ yfinance 초기화 성공
+2025-08-16 20:32:45,371 - startup - INFO - 🚀 서버 시작 준비 중...
+2025-08-16 20:32:45,372 - startup - INFO - 🚀 서버 시작 - 호스트: 0.0.0.0, 포트: 7000
+2025-08-16 20:32:45,372 - startup - INFO - ⚠️ 환경변수 PORT 무시하고 강제로 7000 사용
+2025-08-16 20:32:45,408 - api - INFO - 설정된 CORS Origins: ['https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app', 'https://finance-dashboard.vercel.app', 'http://localhost:3000']
+2025-08-16 20:32:45,491 - api - INFO - ✅ 앱 초기화 완료

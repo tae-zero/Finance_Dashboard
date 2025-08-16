@@ -22,83 +22,41 @@ class SeleniumManager:
         logger.info(f"Railway 환경 감지: {'Chromium 사용' if self.is_railway else 'Chrome 사용'}")
         
     async def create_driver(self):
-        """WebDriver 생성"""
+        """WebDriver 생성 (webdriver-manager 사용)"""
         try:
             chrome_options = Options()
             
+            # 공통 옵션
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36")
+            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-infobars")
+            chrome_options.add_argument("--ignore-certificate-errors")
+            chrome_options.add_argument("--disable-popup-blocking")
+            
             if self.is_railway:
-                # Railway 환경: Google Chrome 사용 (Dockerfile에서 설치)
-                chrome_options.add_argument("--headless")
-                chrome_options.add_argument("--no-sandbox")
-                chrome_options.add_argument("--disable-dev-shm-usage")
-                chrome_options.add_argument("--disable-gpu")
-                chrome_options.add_argument("--window-size=1920,1080")
-                chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-                chrome_options.add_argument("--disable-extensions")
-                chrome_options.add_argument("--disable-infobars")
-                chrome_options.add_argument("--ignore-certificate-errors")
-                chrome_options.add_argument("--disable-popup-blocking")
-                
-                # Dockerfile에서 설치한 Google Chrome 경로 (여러 경로 시도)
-                chrome_paths = [
-                    "/usr/bin/google-chrome",
-                    "/usr/bin/google-chrome-stable",
-                    "/opt/google/chrome/chrome"
-                ]
-                
-                chrome_found = False
-                for chrome_path in chrome_paths:
-                    if os.path.exists(chrome_path):
-                        chrome_options.binary_location = chrome_path
-                        logger.info(f"✅ Chrome 발견: {chrome_path}")
-                        chrome_found = True
-                        break
-                
-                if not chrome_found:
-                    logger.warning("⚠️ Chrome 경로를 찾을 수 없습니다. 기본 경로 사용")
-                
-                # ChromeDriver 경로 설정 (Dockerfile에서 설치)
-                driver_paths = [
-                    "/usr/local/bin/chromedriver",  # Dockerfile에서 설치한 경로
-                    "/usr/bin/chromedriver",
-                    "chromedriver"  # 시스템 PATH에서 찾기
-                ]
-                
-                service = None
-                for driver_path in driver_paths:
-                    try:
-                        if os.path.exists(driver_path):
-                            service = Service(driver_path)
-                            logger.info(f"✅ ChromeDriver 발견: {driver_path}")
-                            break
-                        else:
-                            # 시스템 PATH에서 찾기 시도
-                            service = Service(driver_path)
-                            logger.info(f"✅ 시스템 PATH에서 ChromeDriver 사용: {driver_path}")
-                            break
-                    except Exception as e:
-                        logger.warning(f"ChromeDriver 경로 실패 ({driver_path}): {e}")
-                        continue
-                
-                if not service:
-                    raise Exception("사용 가능한 ChromeDriver를 찾을 수 없습니다")
-                    
-            else:
-                # 로컬 환경: 일반 Chrome 사용
-                chrome_options.add_argument("--headless")
-                chrome_options.add_argument("--no-sandbox")
-                chrome_options.add_argument("--disable-dev-shm-usage")
-                chrome_options.add_argument("--disable-gpu")
-                chrome_options.add_argument("--window-size=1920,1080")
-                chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                
-                # 로컬에서는 webdriver_manager 사용
-                try:
-                    service = Service(ChromeDriverManager().install())
-                except Exception as e:
-                    logger.warning(f"webdriver_manager 실패: {e}")
-                    service = Service("chromedriver")
+                # Railway 환경: 환경변수로 Chrome 바이너리 지정
+                chrome_bin = os.getenv("CHROME_BIN", "/usr/bin/google-chrome")
+                if os.path.exists(chrome_bin):
+                    chrome_options.binary_location = chrome_bin
+                    logger.info(f"✅ Chrome 바이너리 설정: {chrome_bin}")
+                else:
+                    logger.warning(f"⚠️ Chrome 바이너리를 찾을 수 없음: {chrome_bin}")
+            
+            # webdriver-manager로 자동 ChromeDriver 관리
+            try:
+                service = Service(ChromeDriverManager().install())
+                logger.info("✅ ChromeDriver 자동 설치 완료")
+            except Exception as e:
+                logger.warning(f"⚠️ ChromeDriverManager 실패: {e}")
+                # 폴백: 시스템 PATH에서 찾기
+                service = Service("chromedriver")
+                logger.info("✅ 시스템 PATH에서 ChromeDriver 사용")
             
             # WebDriver 생성
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
@@ -189,5 +147,4 @@ class SeleniumManager:
             logger.error(f"❌ 커스텀 스크래핑 실패 ({url}): {str(e)}")
             return []
 
-# 전역 인스턴스
 selenium_manager = SeleniumManager()
