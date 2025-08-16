@@ -50,7 +50,7 @@ async def api_info():
     }
 
 if __name__ == "__main__":
-    # Railway에서는 $PORT 환경변수를 사용
+    # Railway에서는 $PORT 환경변수를 사용하되, 7000으로 강제 설정
     port = int(os.getenv("PORT", 7000))
     host = os.getenv("HOST", "0.0.0.0")
     
@@ -58,6 +58,12 @@ if __name__ == "__main__":
     print(f"📍 호스트: {host}")
     print(f"🔌 포트: {port}")
     print(f"🌐 환경변수 PORT: {os.getenv('PORT')}")
+    print(f"⚠️  포트 8080 충돌 방지를 위해 7000으로 설정")
+    
+    # 포트 8080이면 7000으로 강제 변경
+    if port == 8080:
+        port = 7000
+        print(f"🔄 포트를 7000으로 변경했습니다.")
     
     try:
         uvicorn.run(app, host=host, port=port)
