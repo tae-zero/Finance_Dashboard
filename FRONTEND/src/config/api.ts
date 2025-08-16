@@ -29,9 +29,20 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res,
-  (err: AxiosError) => {
-    console.error('API 오류:', err);
-    if (err.response?.status === 503) console.warn('외부 서비스 일시적 오류');
+  (err: AxiosError<any>) => {
+    const status = err.response?.status;
+    const data = err.response?.data;
+    console.error('API 오류:', { 
+      url: err.config?.url, 
+      method: err.config?.method, 
+      status, 
+      data 
+    });
+    
+    if (status === 503) {
+      console.warn('외부 서비스 일시적 오류');
+    }
+    
     return Promise.reject(err);
   }
 );

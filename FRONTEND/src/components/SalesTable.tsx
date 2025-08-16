@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { API_ENDPOINTS } from '../config/api';
+import api from '../config/api';
 
 interface SalesRow {
   사업부문: string;
@@ -21,7 +21,7 @@ function SalesTable({ name }: SalesTableProps) {
   const [rows, setRows] = useState<SalesRow[]>([]);
 
   useEffect(() => {
-    axios.get(API_ENDPOINTS.COMPANY_SALES(name))
+    api.get(API_ENDPOINTS.COMPANY_SALES(name))
       .then(res => setRows(res.data))
       .catch(err => console.error("매출 데이터 오류:", err));
   }, [name]);

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { API_ENDPOINTS } from '../config/api';
+import api from '../config/api';
 
 const industryList = [
   "IT 서비스", "건설", "기계·장비", "기타금융", "기타제조", "금속",
@@ -22,13 +23,12 @@ function Sidebar() {
   const pathname = usePathname(); 
 
   useEffect(() => {
-    fetch(API_ENDPOINTS.COMPANY_NAMES)
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setCompanyList(data);
+    api.get(API_ENDPOINTS.COMPANY_NAMES)
+      .then(res => {
+        if (Array.isArray(res.data)) {
+          setCompanyList(res.data);
         } else {
-          console.error("❌ 기업명 데이터가 배열이 아닙니다:", data);
+          console.error("❌ 기업명 데이터가 배열이 아닙니다:", res.data);
           setCompanyList([]);
         }
       })
