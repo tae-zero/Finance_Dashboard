@@ -1,17 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  images: {
-    domains: ['localhost'],
-  },
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     return [
       {
-        source: '/api/:path*',
-        destination: `${apiUrl}/api/:path*`,
+        source: "/api/:path*",
+        destination: "https://financedashboard-production-50f3.up.railway.app/api/:path*",
       },
-    ]
+    ];
   },
-}
+  images: {
+    domains: ['financedashboard-production-50f3.up.railway.app'],
+  },
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

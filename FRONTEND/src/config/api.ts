@@ -1,44 +1,57 @@
-// API 설정
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://financedashboard-production-50f3.up.railway.app';
-
-// Axios 기본 설정
 import axios from 'axios';
 
-axios.defaults.baseURL = API_BASE_URL;
-axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
-axios.defaults.headers.common['Content-Type'] = 'application/json';
+// API 기본 설정
+const API_BASE_URL = '/api/v1';  // 프록시 사용
+
+// Axios 인스턴스 생성
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+});
+
+// 응답 인터셉터 추가
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API 오류:', error);
+    if (error.response?.status === 503) {
+      console.warn('외부 서비스 일시적 오류, 캐시된 데이터 사용');
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const API_ENDPOINTS = {
   // 기업 관련
-  COMPANY: (name: string) => `${API_BASE_URL}/api/v1/company/${encodeURIComponent(name)}`,
-  COMPANY_NAMES: `${API_BASE_URL}/api/v1/company/names/all`,
-  COMPANY_METRICS: (name: string) => `${API_BASE_URL}/api/v1/company/metrics/${encodeURIComponent(name)}`,
-  COMPANY_SALES: (name: string) => `${API_BASE_URL}/api/v1/company/sales/${encodeURIComponent(name)}`,
+  COMPANY: (name: string) => `/company/${encodeURIComponent(name)}`,
+  COMPANY_NAMES: `/company/names/all`,
+  COMPANY_METRICS: (name: string) => `/company/metrics/${encodeURIComponent(name)}`,
+  COMPANY_SALES: (name: string) => `/company/sales/${encodeURIComponent(name)}`,
   
   // 뉴스 관련
-  HOT_NEWS: `${API_BASE_URL}/api/v1/news/hot/kospi`,
-  MAIN_NEWS: `${API_BASE_URL}/api/v1/news/earnings`,
-  COMPANY_NEWS: (keyword: string) => `${API_BASE_URL}/api/v1/news/search?keyword=${encodeURIComponent(keyword)}`,
-  ANALYST_REPORT: (code: string) => `${API_BASE_URL}/api/v1/news/analyst/report?code=${code}`,
+  HOT_NEWS: `/news/hot/kospi`,
+  MAIN_NEWS: `/news/earnings`,
+  COMPANY_NEWS: (keyword: string) => `/news/search?keyword=${encodeURIComponent(keyword)}`,
+  ANALYST_REPORT: (code: string) => `/news/analyst/report?code=${code}`,
   
   // 주가 관련
-  STOCK_PRICE: (ticker: string) => `${API_BASE_URL}/api/v1/stock/price/${ticker}`,
-  KOSPI_DATA: `${API_BASE_URL}/api/v1/stock/kospi/index`,
-  MARKET_CAP_TOP10: `${API_BASE_URL}/api/v1/stock/marketcap/top10`,
-  TOP_VOLUME: `${API_BASE_URL}/api/v1/stock/volume/top5`,
-  INDUSTRY_ANALYSIS: (name: string) => `${API_BASE_URL}/api/v1/stock/industry/${encodeURIComponent(name)}`,
+  STOCK_PRICE: (ticker: string) => `/stock/price/${ticker}`,
+  KOSPI_DATA: `/stock/kospi/index`,
+  MARKET_CAP_TOP10: `/stock/marketcap/top10`,
+  TOP_VOLUME: `/stock/volume/top5`,
+  INDUSTRY_ANALYSIS: (name: string) => `/stock/industry/${encodeURIComponent(name)}`,
   
   // 투자자 관련
-  INVESTOR_VALUE: `${API_BASE_URL}/api/v1/investor/value`,
-  INVESTOR_SUMMARY: (ticker: string) => `${API_BASE_URL}/api/v1/investor/summary/${ticker}`,
-  INVESTOR_TRENDS: (days: number) => `${API_BASE_URL}/api/v1/investor/trends?days=${days}`,
+  INVESTOR_VALUE: `/investor/value`,
+  INVESTOR_SUMMARY: (ticker: string) => `/investor/summary/${ticker}`,
+  INVESTOR_TRENDS: (days: number) => `/investor/trends?days=${days}`,
   
   // 기타
-  TREASURE_DATA: `${API_BASE_URL}/api/v1/company/treasure/data`,
-  
-  // 추가 엔드포인트들
-  TOP_RANKINGS: `${API_BASE_URL}/api/v1/investor/rankings/top5`,
+  TREASURE_DATA: `/company/treasure/data`,
+  TOP_RANKINGS: `/investor/rankings/top5`,
 };
 
-export default API_BASE_URL;
-
+export default api;
