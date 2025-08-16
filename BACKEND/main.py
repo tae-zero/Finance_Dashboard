@@ -25,10 +25,10 @@ app.include_router(news.router, prefix="/api/v1")
 app.include_router(stock.router, prefix="/api/v1")
 app.include_router(investor.router, prefix="/api/v1")
 
-# 메인 페이지
+# 메인 페이지 (헬스체크용)
 @app.get("/")
 async def root():
-    return {"message": "Project 1 Backend API", "status": "healthy"}
+    return {"message": "Project 1 Backend API", "status": "healthy", "port": os.getenv("PORT", "7000")}
 
 # 헬스체크 엔드포인트
 @app.get("/health")
@@ -50,8 +50,18 @@ async def api_info():
     }
 
 if __name__ == "__main__":
-    # 7000대 포트 사용 (기존 8000대와 충돌 방지)
+    # Railway에서는 $PORT 환경변수를 사용
     port = int(os.getenv("PORT", 7000))
-    print(f"🚀 서버 시작: 0.0.0.0:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    host = os.getenv("HOST", "0.0.0.0")
+    
+    print(f"🚀 서버 시작 준비 중...")
+    print(f"📍 호스트: {host}")
+    print(f"🔌 포트: {port}")
+    print(f"🌐 환경변수 PORT: {os.getenv('PORT')}")
+    
+    try:
+        uvicorn.run(app, host=host, port=port)
+    except Exception as e:
+        print(f"❌ 서버 시작 실패: {e}")
+        raise e
 
