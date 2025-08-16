@@ -1,7 +1,7 @@
 import os
-import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from routers import company, news, stock, investor
 
 app = FastAPI(
@@ -11,28 +11,30 @@ app = FastAPI(
 )
 
 # CORS 설정
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.cors import CORSMiddleware as StarletteMiddleware
+origins = [
+    "https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173"
+]
 
-# CORS 미들웨어 설정
-app.add_middleware(
-    StarletteMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
-)
-
-# FastAPI CORS 미들웨어 추가
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600
 )
+
+# 전역 CORS 미들웨어
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 # 라우터 등록
 app.include_router(company.router, prefix="/api/v1")
@@ -65,24 +67,12 @@ async def api_info():
     }
 
 if __name__ == "__main__":
-    # Railway에서는 $PORT 환경변수를 사용하되, 7000으로 강제 설정
+    import uvicorn
     port = int(os.getenv("PORT", 7000))
     host = os.getenv("HOST", "0.0.0.0")
     
     print(f"🚀 서버 시작 준비 중...")
     print(f"📍 호스트: {host}")
     print(f"🔌 포트: {port}")
-    print(f"🌐 환경변수 PORT: {os.getenv('PORT')}")
-    print(f"⚠️  포트 8080 충돌 방지를 위해 7000으로 설정")
     
-    # 포트 8080이면 7000으로 강제 변경
-    if port == 8080:
-        port = 7000
-        print(f"🔄 포트를 7000으로 변경했습니다.")
-    
-    try:
-        uvicorn.run(app, host=host, port=port)
-    except Exception as e:
-        print(f"❌ 서버 시작 실패: {e}")
-        raise e
-
+    uvicorn.run(app, host=host, port=port)
