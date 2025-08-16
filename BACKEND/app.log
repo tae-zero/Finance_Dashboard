@@ -134,3 +134,21 @@
 2025-08-16 17:11:28,900 - startup - INFO - 🚀 서버 시작 준비 중...
 2025-08-16 17:11:28,900 - startup - INFO - 📍 호스트: 0.0.0.0
 2025-08-16 17:11:28,901 - startup - INFO - 🔌 포트: 7000
+2025-08-16 17:25:00,186 - startup - INFO - 🔄 서비스 초기화 중...
+2025-08-16 17:25:00,884 - startup - INFO - ✅ 기본 패키지 확인 완료
+2025-08-16 17:25:00,884 - startup - INFO - ✅ 환경변수 확인 완료
+2025-08-16 17:25:01,328 - database - INFO - ✅ MongoDB 연결 성공!
+2025-08-16 17:25:01,329 - database - INFO - ✅ 데이터베이스 'testDB' 선택됨
+2025-08-16 17:25:01,329 - startup - INFO - ✅ MongoDB 연결 성공
+2025-08-16 17:25:02,338 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-16 17:25:03,250 - startup - INFO - ✅ 데이터 프로세서 초기화 완료
+2025-08-16 17:25:03,353 - selenium_utils - ERROR - WebDriver 생성 실패: name 'os' is not defined
+2025-08-16 17:25:03,354 - startup - WARNING - ⚠️ Selenium 초기화 실패: 
+2025-08-16 17:25:03,602 - startup - INFO - ✅ pykrx 초기화 성공
+2025-08-16 17:25:04,030 - startup - INFO - ✅ yfinance 초기화 성공 (티커: 005930.KS)
+2025-08-16 17:25:04,032 - startup - INFO - ✅ yfinance 초기화 및 연결 테스트 완료
+2025-08-16 17:25:04,032 - startup - INFO - 🚀 서버 시작 준비 중...
+2025-08-16 17:25:04,033 - startup - INFO - 📍 호스트: 0.0.0.0
+2025-08-16 17:25:04,033 - startup - INFO - 🔌 포트: 7000
+2025-08-16 17:25:04,097 - api - INFO - 설정된 CORS Origins: ['https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app', 'https://finance-dashboard.vercel.app', 'http://localhost:3000']
+2025-08-16 17:25:04,162 - api - INFO - ✅ 앱 초기화 완료

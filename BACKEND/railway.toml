@@ -13,3 +13,16 @@ numReplicas = 1
 PYTHON_VERSION = "3.11.7"
 PORT = "7000"
 HOST = "0.0.0.0"
+RAILWAY_ENVIRONMENT = "production"
+CORS_ORIGINS = "https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app,https://finance-dashboard.vercel.app"
+
+[[deploy.services]]
+name = "backend"
+protocol = "http"
+internal_port = "7000"
+auto_start = true
+
+[[deploy.mounts]]
+source = "/data"
+destination = "/app/data"
+type = "volume"
