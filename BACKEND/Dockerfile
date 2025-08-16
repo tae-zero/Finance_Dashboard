@@ -11,8 +11,18 @@ RUN apt-get update && apt-get install -y \
     g++ \
     libglib2.0-0 \
     libnss3 \
-    libgconf-2-4 \
     libfontconfig1 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libpango-1.0-0 \
+    libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Chrome 설치 (최신 안정 버전)

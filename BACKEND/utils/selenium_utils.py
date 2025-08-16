@@ -1,88 +1,128 @@
+# BACKEND/app/utils/selenium_utils.py
+from __future__ import annotations
+
 import os
-import asyncio
+import stat
 import logging
+from typing import Optional
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, WebDriverException
+import asyncio
 import time
-import traceback
 from typing import List, Dict, Callable
 
 logger = logging.getLogger("selenium_utils")
 
+
+def _ensure_executable(path: str) -> str:
+    """경로에 실행 권한을 보장."""
+    try:
+        st = os.stat(path)
+        if not (st.st_mode & stat.S_IXUSR):
+            os.chmod(path, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            logger.info("✅ chromedriver 실행 권한 부여: %s", path)
+    except Exception as e:
+        logger.warning("⚠️ 실행 권한 설정 실패(%s): %s", path, e)
+    return path
+
+
+def _pick_real_chromedriver(installed_path: str) -> str:
+    """
+    webdriver_manager가 반환한 경로가 NOTICE 문서일 수 있으므로,
+    반드시 실제 바이너리 'chromedriver' 파일을 선택한다.
+    """
+    # 정상: .../chromedriver-linux64/chromedriver
+    d = os.path.dirname(installed_path)
+    cand = os.path.join(d, "chromedriver")
+    if os.path.isfile(cand):
+        return cand
+
+    # 압축 상위 구조에서 다시 한 번 탐색
+    parent = os.path.dirname(d)
+    cand2 = os.path.join(parent, "chromedriver-linux64", "chromedriver")
+    if os.path.isfile(cand2):
+        return cand2
+
+    # 그래도 못 찾으면 같은 디렉토리의 파일 목록에서 이름이 정확히 chromedriver인 것만
+    for name in os.listdir(d):
+        p = os.path.join(d, name)
+        if os.path.isfile(p) and name == "chromedriver":
+            return p
+
+    # 마지막 안전장치: 원래 경로(실패 가능) 반환
+    return installed_path
+
+
+def build_chrome_options(headless: bool = True) -> Options:
+    opts = Options()
+    if headless:
+        opts.add_argument("--headless=new")
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
+    opts.add_argument("--disable-gpu")
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--window-size=1280,800")
+    opts.add_argument("--remote-debugging-port=9222")
+    opts.add_argument("--lang=ko-KR")
+
+    chrome_bin = os.getenv("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
+    if os.path.exists(chrome_bin):
+        opts.binary_location = chrome_bin
+        logger.info("✅ Chrome 바이너리: %s", chrome_bin)
+    else:
+        logger.warning("⚠️ Chrome 바이너리 미발견: %s", chrome_bin)
+    return opts
+
+
+def create_driver(headless: bool = True) -> webdriver.Chrome:
+    """
+    안전한 Chrome WebDriver 생성:
+    - webdriver_manager 설치 경로에서 실제 'chromedriver'만 집어 사용
+    - 실행 권한 보장
+    """
+    logger.info("====== WebDriver manager ======")
+    installed = ChromeDriverManager().install()
+    logger.info("웹드라이버 설치 경로(원본): %s", installed)
+
+    driver_path = _pick_real_chromedriver(installed)
+    if os.path.basename(driver_path) != "chromedriver":
+        logger.error("❌ 잘못된 드라이버 경로 선택: %s", driver_path)
+    driver_path = _ensure_executable(driver_path)
+    logger.info("✅ 최종 chromedriver 경로: %s", driver_path)
+
+    service = Service(executable_path=driver_path)
+    options = build_chrome_options(headless=headless)
+
+    try:
+        driver = webdriver.Chrome(service=service, options=options)
+        logger.info("✅ WebDriver 생성 성공")
+        return driver
+    except OSError as e:
+        # 아키텍처 불일치(arm64 vs amd64) 가능성 등
+        logger.error("❌ WebDriver 생성 실패(OSerror): %s", e)
+        raise
+    except Exception as e:
+        logger.error("❌ WebDriver 생성 실패: %s", e, exc_info=True)
+        raise
+
+
+# 기존 SeleniumManager 클래스와 호환성을 위한 래퍼
 class SeleniumManager:
     def __init__(self):
         self.driver = None
-        self.is_railway = os.getenv("RAILWAY_ENVIRONMENT") == "production"
-        logger.info("Railway 환경 감지: %s", "Chromium 사용" if self.is_railway else "Chrome 사용")
+        logger.info("SeleniumManager 초기화 완료")
         
     async def create_driver(self):
-        """WebDriver 생성 (Railway 환경 최적화)"""
+        """WebDriver 생성 (사용자 제공 해결책 사용)"""
         try:
-            chrome_options = Options()
-            
-            # Railway 환경 최적화 옵션
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36")
-            chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-            chrome_options.add_argument("--disable-extensions")
-            chrome_options.add_argument("--disable-infobars")
-            chrome_options.add_argument("--ignore-certificate-errors")
-            chrome_options.add_argument("--disable-popup-blocking")
-            chrome_options.add_argument("--remote-debugging-port=9222")
-            chrome_options.add_argument("--disable-web-security")
-            chrome_options.add_argument("--allow-running-insecure-content")
-            
-            if self.is_railway:
-                # Railway 환경: 환경변수로 Chrome 바이너리 지정
-                chrome_bin = os.getenv("CHROME_BIN", "/usr/bin/google-chrome")
-                if os.path.exists(chrome_bin):
-                    chrome_options.binary_location = chrome_bin
-                    logger.info("✅ Chrome 바이너리 설정: %s", chrome_bin)
-                else:
-                    logger.warning("⚠️ Chrome 바이너리를 찾을 수 없음: %s", chrome_bin)
-            
-            # ChromeDriver 경로 설정 (우선순위 순)
-            chromedriver_paths = [
-                os.getenv("CHROMEDRIVER_PATH"),  # 환경변수
-                "/usr/local/bin/chromedriver",   # Docker 설치 경로
-                "/usr/bin/chromedriver",         # 시스템 설치 경로
-                "chromedriver"                   # PATH에서 찾기
-            ]
-            
-            service = None
-            for path in chromedriver_paths:
-                if path and os.path.exists(path):
-                    try:
-                        # 실행 권한 확인 및 설정
-                        if os.path.isfile(path):
-                            os.chmod(path, 0o755)
-                            service = Service(path)
-                            logger.info("✅ ChromeDriver 사용: %s", path)
-                            break
-                    except Exception as e:
-                        logger.debug("ChromeDriver 경로 실패 (%s): %s", path, e)
-                        continue
-            
-            if not service:
-                raise FileNotFoundError("사용 가능한 ChromeDriver를 찾을 수 없습니다")
-            
-            # WebDriver 생성
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            logger.info("✅ WebDriver 생성 성공")
+            self.driver = create_driver(headless=True)
             return self.driver
-            
         except Exception as e:
             logger.error("❌ WebDriver 생성 실패: %s", str(e))
-            logger.error("Traceback:\n%s", traceback.format_exc())
             return None
 
     async def quit_driver(self):
@@ -163,5 +203,6 @@ class SeleniumManager:
         except Exception as e:
             logger.error("❌ 커스텀 스크래핑 실패 (%s): %s", url, str(e))
             return []
+
 
 selenium_manager = SeleniumManager()
