@@ -9,21 +9,21 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Chrome 설치 (간단한 방법)
+# Chrome 설치 (ChromeDriver 114와 호환되는 버전)
 RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb \
     && apt-get update \
     && apt-get install -y /tmp/chrome.deb \
     && rm /tmp/chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
-# ChromeDriver 설치 (최신 버전)
-RUN wget -q https://chromedriver.storage.googleapis.com/LATEST_RELEASE -O /tmp/chromedriver_version \
-    && CHROMEDRIVER_VERSION=$(cat /tmp/chromedriver_version) \
-    && echo "ChromeDriver 버전: $CHROMEDRIVER_VERSION" \
-    && wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" -O /tmp/chromedriver.zip \
+# ChromeDriver 설치 (고정 버전 114.0.5735.90)
+RUN wget -q https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux64.zip -O /tmp/chromedriver.zip \
     && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
-    && rm /tmp/chromedriver.zip /tmp/chromedriver_version \
+    && rm /tmp/chromedriver.zip \
     && chmod +x /usr/local/bin/chromedriver
+
+# Chrome 버전 확인 및 제한
+RUN google-chrome --version && chromedriver --version
 
 # 작업 디렉토리 설정
 WORKDIR /app
