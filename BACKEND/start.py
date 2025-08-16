@@ -195,8 +195,8 @@ async def startup():
             "main:app",
             host=host,
             port=port,
-            log_level="debug",
-            access_log=True,
+            log_level="warning",  # debug → warning으로 변경
+            access_log=False,      # access_log 비활성화
             use_colors=False,
             loop="asyncio"
         )

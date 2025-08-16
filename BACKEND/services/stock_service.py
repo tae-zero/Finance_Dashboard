@@ -8,6 +8,8 @@ import json
 import asyncio
 import logging
 import requests
+import time
+from requests.exceptions import JSONDecodeError as ReqJSONDecodeError, RequestException
 
 logger = logging.getLogger("stock_service")
 
@@ -15,28 +17,40 @@ class StockService:
     def __init__(self):
         self.KOSPI_TICKER = "1001"  # KOSPI 지수 코드 상수
         self._apply_pykrx_monkey_patch()
+        self._setup_logging_levels()
+    
+    def _setup_logging_levels(self):
+        """외부 라이브러리 로깅 레벨 설정"""
+        try:
+            # 외부 라이브러리 로깅 레벨을 WARNING으로 설정
+            logging.getLogger("yfinance").setLevel(logging.WARNING)
+            logging.getLogger("urllib3").setLevel(logging.WARNING)
+            logging.getLogger("pykrx").setLevel(logging.WARNING)
+            logging.getLogger("requests").setLevel(logging.WARNING)
+            logger.info("✅ 외부 라이브러리 로깅 레벨 설정 완료")
+        except Exception as e:
+            logger.debug(f"⚠️ 로깅 레벨 설정 실패: {e}")
     
     def _apply_pykrx_monkey_patch(self):
         """pykrx 내부 오류 방지 몽키패치"""
         try:
-            # pykrx 내부 로깅 오류 방지
+            # pykrx 내부 로깅 오류 완전 차단
             import pykrx.website.comm.util as pykrx_util
-            original_wrapper = pykrx_util.wrapper
+            import logging
             
-            def safe_wrapper(func):
-                def safe_func(*args, **kwargs):
-                    try:
-                        return func(*args, **kwargs)
-                    except Exception as e:
-                        # 로그 레벨을 warning으로 낮춤
-                        logger.debug(f"pykrx 내부 오류 (무시): {str(e)}")
-                        raise
-                return safe_func
+            # pykrx 내부 로깅 레벨을 ERROR로 설정
+            pykrx_logger = logging.getLogger("pykrx")
+            pykrx_logger.setLevel(logging.ERROR)
             
-            pykrx_util.wrapper = safe_wrapper
-            logger.info("✅ pykrx 몽키패치 적용 완료")
+            # root 로거도 pykrx 관련 오류 차단
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers:
+                if "pykrx" in str(handler) or "krx" in str(handler):
+                    handler.setLevel(logging.ERROR)
+            
+            logger.info("✅ pykrx 로깅 차단 완료")
         except Exception as e:
-            logger.debug(f"⚠️ pykrx 몽키패치 실패: {e}")
+            logger.debug(f"⚠️ pykrx 로깅 차단 실패: {e}")
     
     def _normalize_krx_symbol(self, code: str) -> str:
         """KRX 심볼 정규화"""
@@ -44,8 +58,26 @@ class StockService:
             return f"{code}.KS"  # 코스피 기본
         return code
     
+    def _get_index_ohlcv_safe(self, ticker: str, start: str, end: str):
+        """pykrx 안전한 재시도 + 타임아웃"""
+        for i in range(3):  # 최대 3회 재시도
+            try:
+                df = stock.get_index_ohlcv_by_date(
+                    fromdate=start, 
+                    todate=end, 
+                    ticker=ticker
+                )
+                if df is not None and not df.empty:
+                    return df
+                raise ValueError("pykrx returned empty DataFrame")
+            except (ReqJSONDecodeError, ValueError, RequestException) as e:
+                # 가벼운 백오프
+                time.sleep(0.7 * (i + 1))
+                logger.debug(f"pykrx 재시도 {i+1}/3: {str(e)}")
+        return None
+    
     async def get_stock_price(self, ticker: str, period: str = "3y") -> List[Dict]:
-        """주가 데이터 조회"""
+        """주식 가격 데이터 조회"""
         try:
             def _fetch_stock():
                 df = yf.download(ticker, period=period, interval="1d")
@@ -61,28 +93,43 @@ class StockService:
             return await asyncio.to_thread(_fetch_stock)
             
         except Exception as e:
-            logger.error(f"주가 데이터 조회 실패 ({ticker}): {str(e)}")
+            logger.error("주가 데이터 조회 실패 (%s): %s", ticker, str(e))
             return {"error": str(e)}
     
     async def get_kospi_data(self) -> List[Dict]:
-        """코스피 지수 데이터 조회 (간단한 폴백 시스템)"""
-        # 1차 시도: pykrx (몽키패치 적용)
-        try:
-            result = await self._fetch_kospi_pykrx()
-            if result and len(result) > 0:
-                logger.info("✅ pykrx로 코스피 데이터 조회 성공")
-                return result
-        except Exception as e:
-            logger.debug(f"⚠️ pykrx 실패: {str(e)}")
+        """코스피 지수 데이터 조회 (다단 폴백 시스템)"""
+        start_date = (datetime.today() - timedelta(days=365)).strftime("%Y%m%d")
+        end_date = datetime.today().strftime("%Y%m%d")
         
-        # 2차 시도: yfinance (야후 파이낸스)
+        # 1차 시도: pykrx (안전한 재시도)
         try:
-            result = await self._fetch_kospi_yfinance()
+            df = await asyncio.to_thread(
+                self._get_index_ohlcv_safe, 
+                self.KOSPI_TICKER, 
+                start_date, 
+                end_date
+            )
+            if df is not None and not df.empty:
+                df = df.reset_index()
+                result = [
+                    {"Date": d.strftime("%Y-%m-%d"), "Close": float(c)}
+                    for d, c in zip(df.index, df["종가"])
+                    if c is not None
+                ]
+                if result:
+                    logger.info("✅ pykrx로 코스피 데이터 조회 성공")
+                    return result
+        except Exception as e:
+            logger.debug("⚠️ pykrx 실패: %s", str(e))
+        
+        # 2차 시도: yfinance (안전한 다운로드)
+        try:
+            result = await self._fetch_kospi_yfinance_safe()
             if result and len(result) > 0:
                 logger.info("✅ yfinance로 코스피 데이터 조회 성공")
                 return result
         except Exception as e:
-            logger.debug(f"⚠️ yfinance 실패: {str(e)}")
+            logger.debug("⚠️ yfinance 실패: %s", str(e))
         
         # 3차 시도: 정적 데이터 (최후 수단)
         try:
@@ -91,42 +138,14 @@ class StockService:
                 logger.info("✅ 정적 데이터로 코스피 데이터 조회 성공")
                 return result
         except Exception as e:
-            logger.debug(f"⚠️ 정적 데이터 실패: {str(e)}")
+            logger.debug("⚠️ 정적 데이터 실패: %s", str(e))
         
         # 모든 방법 실패
         logger.error("❌ 모든 코스피 데이터 조회 방법 실패")
         raise HTTPException(status_code=503, detail="코스피 데이터 조회 완전 실패")
     
-    async def _fetch_kospi_pykrx(self) -> List[Dict]:
-        """pykrx로 코스피 데이터 조회"""
-        try:
-            def _fetch():
-                today = datetime.today().date()
-                yesterday = today - timedelta(days=30)  # 더 긴 기간으로 시도
-                
-                df = stock.get_index_ohlcv_by_date(
-                    yesterday.strftime('%Y%m%d'),
-                    today.strftime('%Y%m%d'),
-                    self.KOSPI_TICKER
-                )
-                
-                if df.empty:
-                    raise ValueError("pykrx 데이터가 비어있습니다")
-                
-                df = df.reset_index()
-                df['Date'] = df.index.astype(str)
-                df['Close'] = df['종가'].astype(float)
-                
-                return df[['Date', 'Close']].to_dict(orient="records")
-            
-            return await asyncio.to_thread(_fetch)
-            
-        except Exception as e:
-            logger.debug(f"pykrx 실패: {str(e)}")
-            raise
-    
-    async def _fetch_kospi_yfinance(self) -> List[Dict]:
-        """yfinance로 코스피 데이터 조회"""
+    async def _fetch_kospi_yfinance_safe(self) -> List[Dict]:
+        """yfinance 안전한 다운로드"""
         try:
             def _fetch():
                 # KOSPI 지수 티커들 (우선순위 순)
@@ -145,22 +164,28 @@ class StockService:
                         if not df.empty and 'Close' in df.columns:
                             break
                     except Exception as ticker_error:
-                        logger.debug(f"티커 {ticker} 실패: {str(ticker_error)}")
+                        logger.debug("티커 %s 실패: %s", ticker, str(ticker_error))
                         continue
                 
                 if df.empty or 'Close' not in df.columns:
                     raise ValueError("yfinance 데이터가 비어있습니다")
                 
                 df = df.reset_index()
-                df['Date'] = df['Date'].astype(str)
-                df['Close'] = df['Close'].astype(float)
+                out = []
+                for d, c in zip(df["Date"], df["Close"]):
+                    if c is None:
+                        continue
+                    # d가 Timestamp면 날짜 문자열로
+                    if hasattr(d, "strftime"):
+                        d = d.strftime("%Y-%m-%d")
+                    out.append({"Date": str(d), "Close": float(c)})
                 
-                return df[['Date', 'Close']].to_dict(orient="records")
+                return out
             
             return await asyncio.to_thread(_fetch)
             
         except Exception as e:
-            logger.debug(f"yfinance 실패: {str(e)}")
+            logger.debug("yfinance 실패: %s", str(e))
             raise
     
     async def _get_static_kospi_data(self) -> List[Dict]:
@@ -185,7 +210,7 @@ class StockService:
             return result
             
         except Exception as e:
-            logger.debug(f"정적 데이터 생성 실패: {str(e)}")
+            logger.debug("정적 데이터 생성 실패: %s", str(e))
             raise
     
     async def get_market_cap_top10(self) -> Dict:
@@ -207,7 +232,7 @@ class StockService:
             return await asyncio.to_thread(_fetch_market_cap)
             
         except Exception as e:
-            logger.error(f"❌ 시가총액 데이터 조회 실패: {str(e)}")
+            logger.error("❌ 시가총액 데이터 조회 실패: %s", str(e))
             return {"error": str(e)}
     
     async def get_top_volume(self) -> List[Dict]:
@@ -229,7 +254,7 @@ class StockService:
             return await asyncio.to_thread(_fetch_volume)
             
         except Exception as e:
-            logger.error(f"❌ 거래량 데이터 조회 실패: {str(e)}")
+            logger.error("❌ 거래량 데이터 조회 실패: %s", str(e))
             raise HTTPException(status_code=503, detail=str(e))
     
     async def get_industry_analysis(self, name: str) -> Dict:

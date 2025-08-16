@@ -127,9 +127,9 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         error_msg = str(exc)
-        logger.error(f"❌ 전역 에러: {error_msg}")
+        logger.error("❌ 전역 에러: %s", error_msg)
         logger.error(traceback.format_exc())
-        logger.error(f"에러 발생 요청 정보: {log_request_details(request)}")  # await 제거
+        logger.error("에러 발생 요청 정보: %s", log_request_details(request))
         
         return JSONResponse(
             status_code=500,
