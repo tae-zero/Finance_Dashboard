@@ -8,6 +8,8 @@ healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 numReplicas = 1
+minReplicas = 1
+maxReplicas = 1
 
 [deploy.envs]
 PYTHON_VERSION = "3.11.7"
@@ -21,6 +23,7 @@ name = "backend"
 protocol = "http"
 internal_port = "7000"
 auto_start = true
+auto_stop = false
 
 [[deploy.mounts]]
 source = "/data"

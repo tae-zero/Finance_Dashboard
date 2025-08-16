@@ -8,6 +8,7 @@ import asyncio
 import json
 import requests
 from typing import Optional
+import traceback
 
 # 로깅 설정
 logging.basicConfig(
@@ -141,14 +142,29 @@ async def startup():
     logger.info(f"📍 호스트: {host}")
     logger.info(f"🔌 포트: {port}")
     
-    config = uvicorn.Config("main:app", host=host, port=port, log_level="info")
+    # uvicorn 설정
+    config = uvicorn.Config(
+        "main:app", 
+        host=host, 
+        port=port, 
+        log_level="info",
+        access_log=True,
+        use_colors=False,
+        loop="asyncio"
+    )
+    
     server = uvicorn.Server(config)
     
     try:
+        logger.info("🚀 서버 시작 중...")
         await server.serve()
     except Exception as e:
         logger.error(f"❌ 서버 시작 실패: {e}")
-        raise e
+        logger.error(traceback.format_exc())
+        # 서버 실패 시에도 프로세스 유지
+        logger.info("🔄 서버 재시작 시도 중...")
+        await asyncio.sleep(5)
+        await startup()  # 재귀적으로 재시작
 
 if __name__ == "__main__":
     asyncio.run(startup())
