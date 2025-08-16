@@ -1,10 +1,18 @@
 from fastapi import HTTPException
 import asyncio
 import logging
-from pykrx import stock
+import warnings
 from datetime import datetime, timedelta
 from typing import List, Dict
 import json
+
+# pykrx 내부 로깅 완전 차단
+logging.getLogger("pykrx").setLevel(logging.ERROR)
+logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("requests").setLevel(logging.ERROR)
+
+# warnings 완전 차단
+warnings.filterwarnings("ignore")
 
 logger = logging.getLogger("investor_service")
 
@@ -20,10 +28,13 @@ class InvestorService:
         """코스피 투자자별 매수/매도량 분석 (구현)"""
         try:
             def _fetch_investor_data():
-                today = datetime.today().strftime("%Y%m%d")
-                yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
-                
                 try:
+                    # pykrx import를 함수 내부로 이동하여 오류 발생 시점 제어
+                    from pykrx import stock
+                    
+                    today = datetime.today().strftime("%Y%m%d")
+                    yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
+                    
                     # 투자자별 거래량 데이터 조회 (포지셔널 인자 사용)
                     df = stock.get_market_trading_value_by_investor(
                         yesterday,  # fromdate
@@ -59,6 +70,7 @@ class InvestorService:
                     if not result:
                         return {"error": "파싱된 투자자 데이터가 없습니다"}
                     
+                    logger.info("pykrx로 투자자 데이터 조회 성공")
                     return {"투자자별_거래량": result}
                     
                 except Exception as e:
