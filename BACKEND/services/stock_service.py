@@ -1,221 +1,226 @@
-import yfinance as yf
-import pandas as pd
-from datetime import datetime, timedelta
-from pykrx import stock
-from fastapi import HTTPException
-from typing import List, Dict
-import json
 import logging
+from datetime import datetime, timedelta, date
+from typing import List, Dict, Optional
+
+import yfinance as yf
+from pykrx import stock
 
 logger = logging.getLogger("stock_service")
+
+
+def _to_datestring(d) -> str:
+    return d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)
+
+
+def _normalize_yf_close(df) -> Optional[List[Dict]]:
+    """
+    yfinance가 멀티인덱스 컬럼을 줄 때도 Close를 안전하게 뽑아 JSON-friendly로 변환
+    """
+    if df is None or df.empty:
+        return None
+
+    # Close 컬럼 찾기 (단일/멀티인덱스 모두 대응)
+    close_col = None
+    for col in df.columns:
+        if (isinstance(col, tuple) and "Close" in col) or (col == "Close"):
+            close_col = col
+            break
+
+    if close_col is None:
+        logger.warning("yfinance Close 컬럼 없음: %s", list(df.columns))
+        return None
+
+    df = df[[close_col]].reset_index()
+    df.columns = ["Date", "Close"]
+    out = []
+    for d, c in zip(df["Date"], df["Close"]):
+        if c is None:
+            continue
+        out.append({"Date": _to_datestring(d), "Close": float(c)})
+    return out if out else None
+
+
+def _nearest_business_day_str(yyyymmdd: Optional[str] = None, back_limit: int = 6) -> str:
+    """
+    오늘이 휴장/주말일 경우, 최대 back_limit일까지 과거로 보정하여
+    KRX가 응답을 주는 최근 영업일 YYYYMMDD 문자열을 반환
+    """
+    if yyyymmdd:
+        d = datetime.strptime(yyyymmdd, "%Y%m%d").date()
+    else:
+        d = date.today()
+
+    for i in range(back_limit + 1):
+        ds = d.strftime("%Y%m%d")
+        try:
+            # 시가총액 같은 가벼운 엔드포인트로 탐침
+            df = stock.get_market_cap_by_ticker(ds, "KOSPI")
+            if df is not None and not df.empty:
+                return ds
+        except Exception:
+            pass
+        d = d - timedelta(days=1)
+    # 그래도 실패하면 오늘 날짜 문자열 반환(어차피 이후 단계에서 폴백)
+    return date.today().strftime("%Y%m%d")
+
 
 class StockService:
     def __init__(self):
         pass
-    
+
+    # 항상 List[Dict] 반환 (빈 경우도 [])
     def get_stock_price(self, ticker: str, period: str = "3y") -> List[Dict]:
-        """주가 데이터 조회"""
+        """
+        개별 종목 가격. 실패/빈결과여도 [] 반환(예외/에러 dict 금지).
+        """
         try:
-            # yfinance로 데이터 받기
-            df = yf.download(ticker, period=period, interval="1d")
-            
-            if df.empty:
-                return {"error": "데이터 없음"}
-            
-            # 필요한 컬럼만 추출 후 인덱스 리셋
-            df = df[['Close']].reset_index()
-            
-            # Date 컬럼을 문자열로 변환
-            df['Date'] = df['Date'].astype(str)
-            
-            # 필요한 컬럼만 JSON friendly로 구성
-            result = [{"Date": row['Date'], "Close": float(row['Close'])} for _, row in df.iterrows()]
-            return result
-            
+            df = yf.download(ticker, period=period, interval="1d", progress=False, threads=False)
+            data = _normalize_yf_close(df)
+            if data is None:
+                logger.warning("yfinance 종목 데이터 없음: %s", ticker)
+                return []
+            return data
         except Exception as e:
-            logger.error(f"주가 데이터 조회 실패 ({ticker}): {str(e)}")
-            return {"error": str(e)}
-    
+            logger.warning("yfinance 종목 조회 실패(%s): %s", ticker, e)
+            return []
+
     def get_kospi_data(self) -> List[Dict]:
-        """코스피 지수 데이터 조회 (폴백 체인)"""
+        """
+        코스피 지수 데이터: FDR(KS11) → yfinance(^KS11) → 정적 폴백
+        어떤 경우에도 예외를 올리지 않고 리스트 반환.
+        """
         try:
-            # 오늘 날짜 계산 (한국 기준으로 하루 빼줌)
-            today = datetime.today().date()
-            yesterday = today - timedelta(days=1)
-            
-            # 1차 시도: yfinance (^KS11)
-            try:
-                df = yf.download("^KS11", period="1y", interval="1d", auto_adjust=True, end=str(today))
-                
-                if df is not None and not df.empty:
-                    # Close 컬럼 찾기
-                    close_col = None
-                    for col in df.columns:
-                        if isinstance(col, tuple):
-                            if "Close" in col:
-                                close_col = col
-                                break
-                        elif col == "Close":
-                            close_col = col
-                            break
-                    
-                    if close_col is not None:
-                        df = df[[close_col]].reset_index()
-                        df.columns = ['Date', 'Close']
-                        df['Date'] = df['Date'].astype(str)
-                        df['Close'] = df['Close'].astype(float)
-                        
-                        logger.info("yfinance로 코스피 데이터 조회 성공")
-                        return df.to_dict(orient="records")
-                    else:
-                        logger.warning(f"Close 컬럼이 없습니다. 컬럼 목록: {df.columns.tolist()}")
-                else:
-                    logger.warning("yfinance로 코스피 데이터가 비어있습니다")
-            except Exception as e:
-                logger.warning(f"yfinance 실패(^KS11): {e}")
-            
-            # 2차 시도: FinanceDataReader (KS11)
+            today = date.today()
+            start = today - timedelta(days=365)
+
+            # 1) FinanceDataReader (가장 안정적)
             try:
                 import FinanceDataReader as fdr
-                start_date = today - timedelta(days=365)
-                
-                df = fdr.DataReader('KS11', start_date, today)
+                df = fdr.DataReader("KS11", start, today)
                 if df is not None and not df.empty:
                     df = df.reset_index()
-                    result = []
+                    out = []
                     for d, c in zip(df["Date"], df["Close"]):
-                        if c is not None:
-                            d_str = d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)
-                            result.append({"Date": d_str, "Close": float(c)})
-                    
-                    if result:
-                        logger.info("FDR로 코스피 데이터 조회 성공")
-                        return result
-                    else:
-                        logger.warning("FDR 데이터가 비어있습니다")
-                else:
-                    logger.warning("FDR로 코스피 데이터가 비어있습니다")
+                        if c is None:
+                            continue
+                        out.append({"Date": _to_datestring(d), "Close": float(c)})
+                    if out:
+                        logger.info("FDR(KS11)로 코스피 데이터 조회 성공")
+                        return out
+                logger.warning("FDR로 코스피 데이터가 비어있습니다")
             except Exception as e:
-                logger.warning(f"FDR 실패(KS11): {e}")
-            
-            # 3차 시도: 정적 폴백 데이터 (절대 예외 던지지 않음)
+                logger.warning("FDR 실패(KS11): %s", e)
+
+            # 2) yfinance (보조 수단)
+            try:
+                df = yf.download("^KS11", period="1y", interval="1d", progress=False, threads=False)
+                out = _normalize_yf_close(df)
+                if out:
+                    logger.info("yfinance(^KS11)로 코스피 데이터 조회 성공")
+                    return out
+                logger.warning("yfinance로 코스피 데이터가 비어있습니다")
+            except Exception as e:
+                logger.warning("yfinance 실패(^KS11): %s", e)
+
+            # 3) 정적 폴백
             logger.info("✅ 정적 데이터로 코스피 데이터 조회 성공")
             return self._get_static_kospi_data()
-            
+
         except Exception as e:
-            logger.error(f"코스피 데이터 조회 실패: {str(e)}")
-            # 최후 수단: 정적 데이터
+            logger.error("코스피 데이터 조회 실패(최상위): %s", e)
             return self._get_static_kospi_data()
-    
+
     def _get_static_kospi_data(self) -> List[Dict]:
-        """정적 코스피 데이터 (폴백용)"""
-        try:
-            # 최근 30일간의 기본 데이터
-            result = []
-            base_price = 2500  # 기준 코스피 지수
-            
-            for i in range(30):
-                date = datetime.now() - timedelta(days=i)
-                # 약간의 변동성 추가
-                variation = (i % 7 - 3) * 0.01  # 주간 패턴
-                price = base_price * (1 + variation)
-                
-                result.append({
-                    "Date": date.strftime("%Y-%m-%d"),
-                    "Close": round(price, 2)
-                })
-            
-            result.reverse()  # 날짜 순서 정렬
-            return result
-            
-        except Exception as e:
-            logger.error(f"정적 데이터 생성 실패: {e}")
-            # 최후 수단: 기본 데이터
-            return [
-                {"Date": "2025-08-16", "Close": 2500.0},
-                {"Date": "2025-08-15", "Close": 2495.0},
-                {"Date": "2025-08-14", "Close": 2505.0}
-            ]
-    
+        """
+        최근 30일치 더미 데이터. 항상 리스트 반환.
+        """
+        base_price = 2500.0
+        out: List[Dict] = []
+        for i in range(30):
+            d = datetime.now().date() - timedelta(days=29 - i)
+            # 간단한 파형
+            variation = ((i % 7) - 3) * 0.004  # 변동폭 소폭 축소
+            out.append({"Date": d.strftime("%Y-%m-%d"), "Close": round(base_price * (1 + variation), 2)})
+        return out
+
     def get_market_cap_top10(self) -> Dict:
-        """시가총액 TOP10 조회"""
+        """
+        시가총액 TOP10. 휴장일 보정 후 호출.
+        실패 시 빈 리스트로 반환해 프런트가 정상적으로 렌더하도록 함.
+        """
         try:
-            today = datetime.today().strftime("%Y%m%d")
-            
-            # KOSPI 시가총액 전체 종목 불러오기
-            df = stock.get_market_cap_by_ticker(today, market="KOSPI")
-            
-            # 필요한 컬럼만 선택
+            ds = _nearest_business_day_str()
+            df = stock.get_market_cap_by_ticker(ds, "KOSPI")
+            if df is None or df.empty:
+                logger.warning("시가총액 데이터 없음(%s)", ds)
+                return {"시가총액_TOP10": []}
+
             df = df.reset_index()[["티커", "시가총액", "종가"]]
             df["기업명"] = df["티커"].apply(lambda x: stock.get_market_ticker_name(x))
-            
-            # 상위 10개 기업 정렬
-            df = df.sort_values(by="시가총액", ascending=False).head(10)
-            
-            # 컬럼 순서 정리
-            df = df[["기업명", "티커", "시가총액", "종가"]]
-            
-            logger.info("pykrx로 시가총액 데이터 조회 성공")
-            return {"시가총액_TOP10": df.to_dict(orient="records")}
-            
+            top10 = (
+                df.sort_values(by="시가총액", ascending=False)
+                .head(10)[["기업명", "티커", "시가총액", "종가"]]
+                .to_dict(orient="records")
+            )
+            logger.info("pykrx로 시가총액 TOP10 조회 성공(%s)", ds)
+            return {"시가총액_TOP10": top10}
         except Exception as e:
-            logger.error(f"시가총액 데이터 조회 실패: {str(e)}")
-            return {"error": str(e)}
-    
+            logger.warning("시가총액 데이터 조회 실패: %s", e)
+            return {"시가총액_TOP10": []}
+
     def get_top_volume(self) -> List[Dict]:
-        """거래량 TOP5 조회"""
+        """
+        거래량 TOP5. 휴장일 보정 후 호출. 실패 시 [].
+        """
         try:
-            today = datetime.today().strftime("%Y%m%d")
-            
-            # KOSPI 종목 전체 OHLCV 데이터
-            df = stock.get_market_ohlcv(today, market="KOSPI")
-            
-            # 거래량 상위 5개
-            top5 = df.sort_values(by="거래량", ascending=False).head(5)
+            ds = _nearest_business_day_str()
+            df = stock.get_market_ohlcv(ds, "KOSPI")
+            if df is None or df.empty:
+                logger.warning("거래량 데이터 없음(%s)", ds)
+                return []
+
+            top5 = df.sort_values(by="거래량", ascending=False).head(5).copy()
             top5["종목코드"] = top5.index
             top5["종목명"] = top5["종목코드"].apply(lambda code: stock.get_market_ticker_name(code))
             top5.reset_index(drop=True, inplace=True)
-            
-            # JSON 형태로 반환
-            result = top5[["종목명", "종목코드", "거래량"]].to_dict(orient="records")
-            
-            logger.info("pykrx로 거래량 데이터 조회 성공")
-            return result
-            
+            out = top5[["종목명", "종목코드", "거래량"]].to_dict(orient="records")
+            logger.info("pykrx로 거래량 TOP5 조회 성공(%s)", ds)
+            return out
         except Exception as e:
-            logger.error(f"거래량 데이터 조회 실패: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
-    
+            logger.warning("거래량 데이터 조회 실패: %s", e)
+            return []
+
     def get_industry_analysis(self, name: str) -> Dict:
-        """산업별 재무지표 분석 정보 조회"""
+        """
+        산업별 재무지표 분석 정보 조회. 파일 미존재/키 미존재도 예외 올리지 않고 404 메시지로 반환.
+        """
         try:
+            import json
             with open("산업별설명.json", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             name = name.strip()
             for item in data:
                 if item.get("industry") == name:
                     return item
-            
-            raise HTTPException(status_code=404, detail="해당 산업 정보가 없습니다.")
-            
+            return {"error": "해당 산업 정보가 없습니다."}
         except FileNotFoundError:
-            raise HTTPException(status_code=404, detail="산업별설명.json 파일을 찾을 수 없습니다.")
+            return {"error": "산업별설명.json 파일을 찾을 수 없습니다."}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"서버 오류: {str(e)}")
-    
+            return {"error": f"서버 오류: {e}"}
+
     def get_company_metrics(self, name: str) -> Dict:
-        """기업 재무지표 JSON 조회"""
+        """
+        기업 재무지표 JSON 조회. 실패 시 에러 메시지 반환.
+        """
         try:
+            import json
             with open("기업별_재무지표.json", "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
-            if name in data:
-                return data[name]
-            else:
-                raise HTTPException(status_code=404, detail="해당 기업 지표가 없습니다.")
-                
+            return data.get(name, {"error": "해당 기업 지표가 없습니다."})
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            return {"error": str(e)}
 
+
+# 인스턴스 (라우터에서 import)
 stock_service = StockService()
