@@ -3,142 +3,133 @@ import pandas as pd
 from datetime import datetime, timedelta
 from pykrx import stock
 from fastapi import HTTPException
-from typing import List, Dict, Optional
-from utils.data_processor import DataProcessor
-import json
+import time
+import random
+from typing import Dict, List, Optional
+
+def retry_on_failure(max_retries=3, delay=1):
+    """재시도 데코레이터"""
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        print(f"❌ {func.__name__} 실패: {str(e)}")
+                        raise e
+                    time.sleep(delay + random.random())
+            return None
+        return wrapper
+    return decorator
 
 class StockService:
     def __init__(self):
-        self.data_processor = DataProcessor()
-    
+        self.today = datetime.now()
+        self.start_date = (self.today - timedelta(days=365)).strftime('%Y%m%d')
+        self.end_date = self.today.strftime('%Y%m%d')
+
+    @retry_on_failure(max_retries=3)
     def get_stock_price(self, ticker: str) -> Dict:
         """주가 데이터 조회"""
         try:
-            # yfinance를 사용한 주가 데이터 조회
-            stock_data = self.data_processor.get_stock_data(ticker)
-            return stock_data
+            # yfinance에서 데이터 가져오기
+            stock_data = yf.download(ticker, 
+                                   start=(self.today - timedelta(days=365)).strftime('%Y-%m-%d'),
+                                   end=self.today.strftime('%Y-%m-%d'),
+                                   progress=False)
+            
+            if stock_data.empty:
+                return {"error": "데이터 없음"}
+            
+            # 데이터 포맷팅
+            stock_data = stock_data.reset_index()
+            stock_data['Date'] = stock_data['Date'].dt.strftime('%Y-%m-%d')
+            
+            return {
+                "dates": stock_data['Date'].tolist(),
+                "prices": stock_data['Close'].round(2).tolist(),
+                "volumes": stock_data['Volume'].tolist()
+            }
+            
         except Exception as e:
             print(f"❌ 주가 데이터 조회 실패: {e}")
-            return {"error": "데이터 없음"}
-    
-    def get_kospi_data(self) -> List[Dict]:
-        """코스피 지수 데이터 조회"""
+            return {"error": "데이터 조회 실패"}
+
+    @retry_on_failure(max_retries=3)
+    def get_investor_data(self, code: str) -> Dict:
+        """투자자 데이터 조회"""
         try:
-            # 오늘 날짜 계산 (한국 기준으로 하루 빼줌)
-            today = datetime.today().date()
-            yesterday = today - timedelta(days=1)
-            
-            df = yf.download("^KS11", period="1y", interval="1d", auto_adjust=True, end=str(today))
+            # pykrx에서 데이터 가져오기
+            df = stock.get_market_trading_value_by_date(
+                fromdate=self.start_date,
+                todate=self.end_date,
+                ticker=code
+            )
             
             if df.empty:
-                raise HTTPException(status_code=400, detail="데이터가 없습니다.")
+                return {"error": "조회된 데이터가 없습니다."}
             
-            # Close 컬럼 찾기
-            close_col = None
-            for col in df.columns:
-                if isinstance(col, tuple):
-                    if "Close" in col:
-                        close_col = col
-                        break
-                elif col == "Close":
-                    close_col = col
-                    break
+            # 데이터 포맷팅
+            df = df.reset_index()
+            df['날짜'] = df['날짜'].dt.strftime('%Y-%m-%d')
             
-            if close_col is None:
-                raise HTTPException(status_code=400, detail=f"Close 컬럼이 없습니다. 컬럼 목록: {df.columns.tolist()}")
-            
-            df = df[[close_col]].reset_index()
-            df.columns = ['Date', 'Close']
-            df['Date'] = df['Date'].astype(str)
-            df['Close'] = df['Close'].astype(float)
-            
-            return df.to_dict(orient="records")
+            return {
+                "dates": df['날짜'].tolist(),
+                "개인": df['개인'].astype(float).round(2).tolist(),
+                "외국인": df['외국인'].astype(float).round(2).tolist(),
+                "기관": df['기관'].astype(float).round(2).tolist()
+            }
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    def get_market_cap_top10(self) -> Dict:
-        """시가총액 TOP10 조회"""
+            print(f"❌ 투자자 데이터 조회 실패: {e}")
+            return {"error": "데이터 조회 실패"}
+
+    @retry_on_failure(max_retries=3)
+    def get_market_cap_top10(self) -> List[Dict]:
+        """시가총액 상위 10개 기업 조회"""
         try:
-            today = datetime.today().strftime("%Y%m%d")
+            df = stock.get_market_cap_by_ticker(self.today.strftime("%Y%m%d"))
+            top10 = df.nlargest(10, '시가총액')
             
-            # KOSPI 시가총액 전체 종목 불러오기
-            df = stock.get_market_cap_by_ticker(today, market="KOSPI")
+            result = []
+            for ticker in top10.index:
+                company_name = stock.get_market_ticker_name(ticker)
+                market_cap = int(top10.loc[ticker, '시가총액'] / 100000000)  # 억 원 단위
+                result.append({
+                    "종목코드": ticker,
+                    "기업명": company_name,
+                    "시가총액": market_cap
+                })
             
-            # 필요한 컬럼만 선택
-            df = df.reset_index()[["티커", "시가총액", "종가"]]
-            df["기업명"] = df["티커"].apply(lambda x: stock.get_market_ticker_name(x))
-            
-            # 상위 10개 기업 정렬
-            df = df.sort_values(by="시가총액", ascending=False).head(10)
-            
-            # 컬럼 순서 정리
-            df = df[["기업명", "티커", "시가총액", "종가"]]
-            
-            return {"시가총액_TOP10": df.to_dict(orient="records")}
-            
-        except Exception as e:
-            return {"error": str(e)}
-    
-    def get_top_volume(self) -> List[Dict]:
-        """거래량 TOP5 조회"""
-        try:
-            today = datetime.today().strftime("%Y%m%d")
-            
-            # KOSPI 종목 전체 OHLCV 데이터
-            df = stock.get_market_ohlcv(today, market="KOSPI")
-            
-            # 거래량 상위 5개
-            top5 = df.sort_values(by="거래량", ascending=False).head(5)
-            top5["종목코드"] = top5.index
-            top5["종목명"] = top5["종목코드"].apply(lambda code: stock.get_market_ticker_name(code))
-            top5.reset_index(drop=True, inplace=True)
-            
-            # JSON 형태로 반환
-            result = top5[["종목명", "종목코드", "거래량"]].to_dict(orient="records")
             return result
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    def get_industry_analysis(self, name: str) -> Dict:
-        """산업별 재무지표 분석 정보 조회"""
+            print(f"❌ 시가총액 데이터 조회 실패: {e}")
+            return []
+
+    @retry_on_failure(max_retries=3)
+    def get_kospi_index(self) -> Dict:
+        """코스피 지수 조회"""
         try:
-            with open("산업별설명.json", encoding="utf-8") as f:
-                data = json.load(f)
+            df = stock.get_index_ohlcv_by_date(
+                self.start_date,
+                self.end_date,
+                "1001"  # KOSPI 지수
+            )
             
-            name = name.strip()
-            for item in data:
-                if item.get("industry") == name:
-                    return item
+            if df.empty:
+                return {"error": "데이터 없음"}
             
-            raise HTTPException(status_code=404, detail="해당 산업 정보가 없습니다.")
+            df = df.reset_index()
+            df['날짜'] = df['날짜'].dt.strftime('%Y-%m-%d')
             
-        except FileNotFoundError:
-            raise HTTPException(status_code=404, detail="산업별설명.json 파일을 찾을 수 없습니다.")
+            return {
+                "dates": df['날짜'].tolist(),
+                "values": df['종가'].astype(float).round(2).tolist(),
+                "volumes": df['거래량'].tolist()
+            }
+            
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"서버 오류: {str(e)}")
-    
-    def get_company_metrics(self, name: str) -> Dict:
-        """기업 재무지표 JSON 조회"""
-        try:
-            with open("기업별_재무지표.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-            
-            if name in data:
-                return data[name]
-            else:
-                raise HTTPException(status_code=404, detail="해당 기업 지표가 없습니다.")
-                
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    def get_industry_metrics(self) -> Dict:
-        """산업별 지표 조회"""
-        try:
-            with open("industry_metrics.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return data
-        except Exception as e:
-            print(f"❌ 산업 지표 조회 실패: {e}")
-            return {}
+            print(f"❌ 코스피 지수 조회 실패: {e}")
+            return {"error": "데이터 조회 실패"}

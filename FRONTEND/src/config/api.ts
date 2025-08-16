@@ -1,5 +1,12 @@
 // API 설정
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://financedashboard-production-50f3.up.railway.app';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://financedashboard-production-50f3.up.railway.app';
+
+// Axios 기본 설정
+import axios from 'axios';
+
+axios.defaults.baseURL = API_BASE_URL;
+axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
+axios.defaults.headers.common['Content-Type'] = 'application/json';
 
 export const API_ENDPOINTS = {
   // 기업 관련

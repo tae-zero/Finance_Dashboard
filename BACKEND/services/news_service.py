@@ -9,8 +9,9 @@ class NewsService:
     def get_kospi_news(self) -> List[Dict]:
         """코스피 관련 뉴스 조회"""
         try:
-            # Selenium을 사용한 뉴스 크롤링
-            news_data = self.selenium_manager.get_kospi_news()
+            url = "https://finance.naver.com/sise/sise_index.naver?code=KOSPI"
+            selector = ".news_list a"
+            news_data = self.selenium_manager.scrape_news(url, selector, max_items=10)
             return news_data
         except Exception as e:
             print(f"❌ 뉴스 조회 실패: {e}")
@@ -19,8 +20,9 @@ class NewsService:
     def get_company_news(self, company_name: str) -> List[Dict]:
         """특정 기업 관련 뉴스 조회"""
         try:
-            # 기업별 뉴스 크롤링
-            news_data = self.selenium_manager.get_company_news(company_name)
+            url = f"https://finance.naver.com/search/search.naver?query={company_name}"
+            selector = ".article_list a"
+            news_data = self.selenium_manager.scrape_news(url, selector, max_items=10)
             return news_data
         except Exception as e:
             print(f"❌ 기업 뉴스 조회 실패: {e}")
