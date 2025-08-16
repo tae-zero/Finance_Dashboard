@@ -13,7 +13,12 @@ app = FastAPI(
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app",
+        "https://finance-dashboard-43ovkbikr-jeongtaeyeongs-projects.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
