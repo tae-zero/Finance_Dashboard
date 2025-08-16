@@ -1,43 +1,65 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
-// axios 인스턴스 생성
+const isBrowser = typeof window !== 'undefined';
+
+// 브라우저: 반드시 리라이트 타게 함 → 상대 경로 고정
+// 서버(SSR)에서만 절대 URL 허용(필요할 때). 서버용 env는 NEXT_PUBLIC 금지.
+const API_BASE_URL =
+  isBrowser
+    ? '/api/v1'
+    : (process.env.API_BASE_URL?.replace(/\/$/, '') || 'http://127.0.0.1:7000') + '/api/v1';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   timeout: 30000,
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// 엔드포인트 정의
+// 타입 경고 방지 + 기본 헤더 설정
+api.defaults.headers.post['Content-Type']  = 'application/json';
+api.defaults.headers.put['Content-Type']   = 'application/json';
+api.defaults.headers.patch['Content-Type'] = 'application/json';
+api.defaults.headers.delete['Content-Type']= 'application/json';
+
+api.interceptors.request.use((config) => {
+  config.headers = config.headers || {};
+  (config.headers as any)['X-Requested-With'] = 'XMLHttpRequest';
+  return config;
+});
+
+api.interceptors.response.use(
+  (res) => res,
+  (err: AxiosError) => {
+    console.error('API 오류:', err);
+    if (err.response?.status === 503) console.warn('외부 서비스 일시적 오류');
+    return Promise.reject(err);
+  }
+);
+
 export const API_ENDPOINTS = {
-  // 기업
-  COMPANY: (name: string) => `/v1/company/${encodeURIComponent(name)}`,
-  COMPANY_NAMES: `/v1/company/names/all`,
-  COMPANY_METRICS: (name: string) => `/v1/company/metrics/${encodeURIComponent(name)}`,
-  COMPANY_SALES: (name: string) => `/v1/company/sales/${encodeURIComponent(name)}`,
-
-  // 뉴스
-  HOT_NEWS: `/v1/news/hot/kospi`,
-  MAIN_NEWS: `/v1/news/earnings`,
-  COMPANY_NEWS: (keyword: string) => `/v1/news/search?keyword=${encodeURIComponent(keyword)}`,
-  ANALYST_REPORT: (code: string) => `/v1/news/analyst/report?code=${encodeURIComponent(code)}`,
-
-  // 주가
-  STOCK_PRICE: (ticker: string) => `/v1/stock/price/${encodeURIComponent(ticker)}`,
-  KOSPI_DATA: `/v1/stock/kospi/index`,
-  MARKET_CAP_TOP10: `/v1/stock/marketcap/top10`,
-  TOP_VOLUME: `/v1/stock/volume/top5`,
-  INDUSTRY_ANALYSIS: (name: string) => `/v1/stock/industry/${encodeURIComponent(name)}`,
-
-  // 투자자
-  INVESTOR_VALUE: `/v1/investor/value`,
-  INVESTOR_SUMMARY: (ticker: string) => `/v1/investor/summary/${encodeURIComponent(ticker)}`,
-  INVESTOR_TRENDS: (days: number) => `/v1/investor/trends?days=${days}`,
-
-  // 기타
-  TREASURE_DATA: `/v1/company/treasure/data`,
-  TOP_RANKINGS: `/v1/investor/rankings/top5`,
+  COMPANY: (name: string) => `/company/${encodeURIComponent(name)}`,
+  COMPANY_NAMES: `/company/names/all`,
+  COMPANY_METRICS: (name: string) => `/company/metrics/${encodeURIComponent(name)}`,
+  COMPANY_SALES: (name: string) => `/company/sales/${encodeURIComponent(name)}`,
+  HOT_NEWS: `/news/hot/kospi`,
+  MAIN_NEWS: `/news/earnings`,
+  COMPANY_NEWS: (keyword: string) => `/news/search?keyword=${encodeURIComponent(keyword)}`,
+  ANALYST_REPORT: (code: string) => `/news/analyst/report?code=${code}`,
+  STOCK_PRICE: (ticker: string) => `/stock/price/${ticker}`,
+  KOSPI_DATA: `/stock/kospi/index`,
+  MARKET_CAP_TOP10: `/stock/marketcap/top10`,
+  TOP_VOLUME: `/stock/volume/top5`,
+  INDUSTRY_ANALYSIS: (name: string) => `/stock/industry/${encodeURIComponent(name)}`,
+  INVESTOR_VALUE: `/investor/value`,
+  INVESTOR_SUMMARY: (ticker: string) => `/investor/summary/${ticker}`,
+  INVESTOR_TRENDS: (days: number) => `/investor/trends?days=${days}`,
+  TREASURE_DATA: `/company/treasure/data`,
+  TOP_RANKINGS: `/investor/rankings/top5`,
 };
 
 // 디버깅 로그
+console.log('[api] API_BASE_URL:', API_BASE_URL);
+console.log('[api] isBrowser:', isBrowser);
 console.log('[api] API 객체 생성됨:', api);
 console.log('[api] API_ENDPOINTS 생성됨:', API_ENDPOINTS);
 
