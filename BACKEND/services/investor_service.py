@@ -39,10 +39,14 @@ def _get_market_trading_value_by_investor_safe(
         for back in range(max_back + 1):
             try:
                 from pykrx import stock
+                # 위치 인자 사용! (market= 키워드 X)
                 df = stock.get_market_trading_value_by_investor(
-                    fromdate=s.strftime("%Y%m%d"),
-                    todate=e.strftime("%Y%m%d"),
-                    market=market,
+                    s.strftime("%Y%m%d"),  # fromdate
+                    e.strftime("%Y%m%d"),  # todate
+                    market,                 # market (3번째 위치 인자)
+                    etf=False,              # 추가 옵션들
+                    etn=False,
+                    elw=False
                 )
                 # 정상 데이터 확인
                 if df is not None and not df.empty:
