@@ -11,11 +11,12 @@ class SeleniumManager:
         """Chrome 드라이버 생성"""
         options = Options()
         
-        # Railway 환경을 위한 추가 옵션
-        options.add_argument('--headless=new')  # 새로운 headless 모드
+        # Chromium 옵션 설정
+        options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.binary_location = "/usr/bin/google-chrome"  # Railway의 Chrome 위치
+        options.add_argument('--disable-gpu')
+        options.binary_location = "/usr/bin/chromium"
         """Chrome 드라이버 생성"""
         options = Options()
         
