@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl \
     ca-certificates \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Chrome 설치 (더 간단한 방법)
@@ -16,11 +17,17 @@ RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_a
     && rm /tmp/chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
-# ChromeDriver 설치 (더 안전한 방법)
-RUN wget -q https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/120.0.6099.109/linux64/chromedriver-linux64.zip -O /tmp/chromedriver.zip \
-    && unzip /tmp/chromedriver.zip -d /tmp/ \
-    && mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ \
-    && rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64 \
+# ChromeDriver 설치 (자동 버전 감지)
+RUN CHROME_VERSION=$(google-chrome --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1) \
+    && echo "Chrome 버전: $CHROME_VERSION" \
+    && MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1) \
+    && echo "주 버전: $MAJOR_VERSION" \
+    && wget -q "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${MAJOR_VERSION}" -O /tmp/chromedriver_version \
+    && CHROMEDRIVER_VERSION=$(cat /tmp/chromedriver_version) \
+    && echo "ChromeDriver 버전: $CHROMEDRIVER_VERSION" \
+    && wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" -O /tmp/chromedriver.zip \
+    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+    && rm /tmp/chromedriver.zip /tmp/chromedriver_version \
     && chmod +x /usr/local/bin/chromedriver
 
 # 작업 디렉토리 설정
