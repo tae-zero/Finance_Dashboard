@@ -27,24 +27,48 @@ class SeleniumManager:
             chrome_options = Options()
             
             if self.is_railway:
-                # Railway 환경: Chromium 사용
+                # Railway 환경: Google Chrome 사용 (Dockerfile에서 설치)
                 chrome_options.add_argument("--headless")
                 chrome_options.add_argument("--no-sandbox")
                 chrome_options.add_argument("--disable-dev-shm-usage")
                 chrome_options.add_argument("--disable-gpu")
                 chrome_options.add_argument("--window-size=1920,1080")
                 chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+                chrome_options.add_argument("--disable-extensions")
+                chrome_options.add_argument("--disable-infobars")
+                chrome_options.add_argument("--ignore-certificate-errors")
+                chrome_options.add_argument("--disable-popup-blocking")
                 
-                # Railway에서 Chromium 경로 설정
-                chrome_options.binary_location = "/usr/bin/chromium-browser"
+                # Dockerfile에서 설치한 Google Chrome 경로
+                chrome_options.binary_location = "/usr/bin/google-chrome"
                 
-                # ChromeDriver 경로 설정
-                driver_path = "/usr/local/bin/chromedriver"
-                if os.path.exists(driver_path):
-                    service = Service(driver_path)
-                else:
-                    # 시스템 PATH에서 찾기
-                    service = Service("chromedriver")
+                # ChromeDriver 경로 설정 (Dockerfile에서 설치)
+                driver_paths = [
+                    "/usr/local/bin/chromedriver",  # Dockerfile에서 설치한 경로
+                    "/usr/bin/chromedriver",
+                    "chromedriver"  # 시스템 PATH에서 찾기
+                ]
+                
+                service = None
+                for driver_path in driver_paths:
+                    try:
+                        if os.path.exists(driver_path):
+                            service = Service(driver_path)
+                            logger.info(f"✅ ChromeDriver 발견: {driver_path}")
+                            break
+                        else:
+                            # 시스템 PATH에서 찾기 시도
+                            service = Service(driver_path)
+                            logger.info(f"✅ 시스템 PATH에서 ChromeDriver 사용: {driver_path}")
+                            break
+                    except Exception as e:
+                        logger.warning(f"ChromeDriver 경로 실패 ({driver_path}): {e}")
+                        continue
+                
+                if not service:
+                    raise Exception("사용 가능한 ChromeDriver를 찾을 수 없습니다")
+                    
             else:
                 # 로컬 환경: 일반 Chrome 사용
                 chrome_options.add_argument("--headless")
@@ -55,8 +79,13 @@ class SeleniumManager:
                 chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                 
                 # 로컬에서는 webdriver_manager 사용
-                service = Service(ChromeDriverManager().install())
+                try:
+                    service = Service(ChromeDriverManager().install())
+                except Exception as e:
+                    logger.warning(f"webdriver_manager 실패: {e}")
+                    service = Service("chromedriver")
             
+            # WebDriver 생성
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             logger.info("✅ WebDriver 생성 성공")
             return self.driver

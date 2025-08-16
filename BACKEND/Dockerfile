@@ -1,51 +1,41 @@
 FROM python:3.11-slim
 
-# 시스템 패키지 설치
+# 시스템 패키지 업데이트 및 필요한 패키지 설치
 RUN apt-get update && apt-get install -y \
     wget \
-    gnupg2 \
+    gnupg \
     unzip \
-    gcc \
-    g++ \
-    make \
-    git \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Chrome 설치
-RUN mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && \
-    apt-get install -y google-chrome-stable && \
-    rm -rf /var/lib/apt/lists/*
+# Chrome 저장소 추가 및 Chrome 설치
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
 
-# Chrome 환경변수 설정
-ENV CHROME_BIN=/usr/bin/google-chrome
-ENV CHROME_PATH=/usr/bin/google-chrome
-ENV CHROMIUM_PATH=/usr/bin/google-chrome
+# ChromeDriver 설치
+RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | awk -F'.' '{print $1}') \
+    && wget -q "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}" -O /tmp/chromedriver_version \
+    && CHROMEDRIVER_VERSION=$(cat /tmp/chromedriver_version) \
+    && wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" -O /tmp/chromedriver.zip \
+    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+    && rm /tmp/chromedriver.zip /tmp/chromedriver_version \
+    && chmod +x /usr/local/bin/chromedriver
 
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# 의존성 파일 복사 및 설치
+# Python 의존성 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 소스 코드 복사
+# 애플리케이션 코드 복사
 COPY . .
-
-# 환경 변수 설정
-ENV TZ=Asia/Seoul
-ENV PYTHONUNBUFFERED=1
-ENV PORT=7000
-ENV HOST=0.0.0.0
-
-# CORS 헤더 설정
-ENV CORS_ORIGINS="https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app,https://finance-dashboard.vercel.app,https://finance.taezero.com,http://localhost:3000"
 
 # 포트 노출
 EXPOSE 7000
 
-# 시작 명령어
+# 애플리케이션 실행
 CMD ["python", "start.py"]
