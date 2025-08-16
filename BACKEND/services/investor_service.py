@@ -1,10 +1,15 @@
+# BACKEND/app/services/investor_service.py
+from __future__ import annotations
+
 import asyncio
 import logging
 import warnings
 import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta, date
 from typing import Dict, List, Optional
 
+import pandas as pd  # ← 스레드 내부 함수에서도 보이도록 전역 import
 from requests.exceptions import JSONDecodeError as ReqJSONDecodeError, RequestException
 from pykrx import stock
 
@@ -17,17 +22,40 @@ warnings.filterwarnings("ignore")
 logger = logging.getLogger("investor_service")
 
 
+@contextmanager
+def _quiet_pykrx(level: int = logging.ERROR):
+    """
+    pykrx 호출 구간만 조용하게: 잘못된 내부 로깅 포맷으로 터지는
+    'Logging error' 스택을 억제하고, 루트 로깅 레벨을 잠시 올린다.
+    """
+    root = logging.getLogger()
+    prev_level = root.level
+    prev_raise = getattr(logging, "raiseExceptions", True)
+    try:
+        root.setLevel(level)
+        logging.raiseExceptions = False  # 포맷 에러 traceback 억제
+        yield
+    finally:
+        root.setLevel(prev_level)
+        logging.raiseExceptions = prev_raise
+
+
 def _nearest_business_day_str(yyyymmdd: Optional[str] = None, back_limit: int = 6) -> str:
+    """
+    최근 영업일을 조용히 탐침. 실패 시 하루씩 후퇴(backoff).
+    """
     d = datetime.strptime(yyyymmdd, "%Y%m%d").date() if yyyymmdd else date.today()
     for _ in range(back_limit + 1):
         ds = d.strftime("%Y%m%d")
         try:
-            df = stock.get_market_cap_by_ticker(ds, "KOSPI")
+            with _quiet_pykrx():
+                df = stock.get_market_cap_by_ticker(ds, "KOSPI")  # 위치 인자 사용
             if df is not None and not df.empty:
                 return ds
         except Exception:
             pass
         d -= timedelta(days=1)
+    # 그래도 못 찾으면 오늘 날짜 반환(후속 단계에서 폴백 처리)
     return date.today().strftime("%Y%m%d")
 
 
@@ -38,18 +66,20 @@ def _get_market_trading_value_by_investor_safe(
     투자자 매매대금 조회 안전 래퍼.
     - 휴장/주말/네트워크 이슈 시 직전 영업일로 back-off
     - 위치 인자 사용(키워드 market= 금지)
+    - 호출 구간 조용히(_quiet_pykrx)
     """
     s = datetime.strptime(start, "%Y%m%d").date()
     e = datetime.strptime(end, "%Y%m%d").date()
 
     for i in range(max_back + 1):
         try:
-            df = stock.get_market_trading_value_by_investor(
-                s.strftime("%Y%m%d"),  # fromdate
-                e.strftime("%Y%m%d"),  # todate
-                market_or_ticker,      # 3번째 위치 인자
-                # detail/etf/etn/elw 옵션은 기본값으로 둠
-            )
+            with _quiet_pykrx():
+                df = stock.get_market_trading_value_by_investor(
+                    s.strftime("%Y%m%d"),  # fromdate
+                    e.strftime("%Y%m%d"),  # todate
+                    market_or_ticker,      # 3번째 위치 인자 (KOSPI/KOSDAQ/ALL 또는 종목코드)
+                    # detail/etf/etn/elw 옵션은 기본값
+                )
             if df is not None and not df.empty:
                 # 컬럼 공백/이상치 정리
                 df.columns = [str(c).strip() for c in df.columns]
@@ -60,18 +90,16 @@ def _get_market_trading_value_by_investor_safe(
                 "pykrx 투자자 데이터 실패(%s~%s,%s) 재시도 %d/%d: %s",
                 s, e, market_or_ticker, i + 1, max_back + 1, ex,
             )
-            s -= timedelta(days=1)
-            e -= timedelta(days=1)
-            time.sleep(0.6 * (i + 1))
         except Exception as ex:
             # 알 수 없는 예외도 동일하게 backoff 처리
             logger.warning(
                 "pykrx 투자자 데이터 예외(%s~%s,%s) 재시도 %d/%d: %s",
                 s, e, market_or_ticker, i + 1, max_back + 1, ex,
             )
-            s -= timedelta(days=1)
-            e -= timedelta(days=1)
-            time.sleep(0.6 * (i + 1))
+        # 하루씩 후퇴 + 점진적 대기
+        s -= timedelta(days=1)
+        e -= timedelta(days=1)
+        time.sleep(0.6 * (i + 1))
     return None
 
 
@@ -86,7 +114,7 @@ class InvestorService:
         """
         코스피 투자자별 매매대금/순매수 등(스키마는 pykrx 상황에 따라 일부 변동 가능)
         - 어떤 경우에도 dict 반환(폴백 포함)
-        - '거래대금' 컬럼 의존성 제거 (과거 에러 원인)
+        - '거래대금' 컬럼 의존성 제거 (과거 KeyError 원인 제거)
         """
         try:
             def _fetch():
@@ -121,7 +149,10 @@ class InvestorService:
                     row = df.loc[idx]
                     item = {"date": idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)}
                     for k, newk in pick.items():
-                        item[newk] = int(row[k]) if k in cols and k in row.index and pd.notna(row[k]) else 0
+                        try:
+                            item[newk] = int(row[k]) if k in cols and pd.notna(row[k]) else 0
+                        except Exception:
+                            item[newk] = 0
                     out.append(item)
 
                 if not out:
@@ -131,7 +162,6 @@ class InvestorService:
                 logger.info("pykrx로 투자자 데이터 조회 성공")
                 return {"투자자별_거래량": out}
 
-            import pandas as pd  # 지역 import (pd.notna 사용)
             return await asyncio.to_thread(_fetch)
 
         except Exception as e:
@@ -182,9 +212,10 @@ class InvestorService:
                 )
 
                 try:
-                    df = stock.get_market_trading_value_by_investor(
-                        yesterday, today, ticker  # 3번째 위치 인자에 종목코드
-                    )
+                    with _quiet_pykrx():
+                        df = stock.get_market_trading_value_by_investor(
+                            yesterday, today, ticker  # 3번째 위치 인자에 종목코드
+                        )
                     if df is None or df.empty:
                         return {"error": "투자자 요약 데이터가 없습니다"}
 
@@ -198,7 +229,7 @@ class InvestorService:
                     }
                     # 총합(숫자 컬럼만)
                     try:
-                        res["total"] = int(latest.select_dtypes(include=["number"]).sum())
+                        res["total"] = int(pd.to_numeric(latest, errors="coerce").fillna(0).sum())
                     except Exception:
                         res["total"] = 0
                     return res
@@ -221,11 +252,12 @@ class InvestorService:
                 end_d = date.today()
                 start_d = end_d - timedelta(days=days)
                 try:
-                    df = stock.get_market_trading_value_by_investor(
-                        start_d.strftime("%Y%m%d"),
-                        end_d.strftime("%Y%m%d"),
-                        "KOSPI",
-                    )
+                    with _quiet_pykrx():
+                        df = stock.get_market_trading_value_by_investor(
+                            start_d.strftime("%Y%m%d"),
+                            end_d.strftime("%Y%m%d"),
+                            "KOSPI",
+                        )
                     if df is None or df.empty:
                         return {"error": "트렌드 데이터가 없습니다"}
 

@@ -6,7 +6,8 @@ import os
 import logging
 from datetime import datetime
 import traceback
-
+import logging
+logging.raiseExceptions = False
 # =========================
 # 로깅 설정 (환경변수 기반)
 # =========================
