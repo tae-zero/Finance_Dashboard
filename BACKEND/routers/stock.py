@@ -12,7 +12,8 @@ stock_service = StockService()
 async def get_stock_price(ticker: str) -> Dict:
     """주식 가격 데이터 조회"""
     try:
-        return await stock_service.get_stock_price(ticker)
+        data = await stock_service.get_stock_price(ticker)
+        return {"data": data}
     except HTTPException:
         raise
     except Exception as e:
@@ -23,7 +24,8 @@ async def get_stock_price(ticker: str) -> Dict:
 async def get_kospi_index() -> Dict:
     """코스피 지수 데이터 조회"""
     try:
-        return await stock_service.get_kospi_data()
+        data = await stock_service.get_kospi_data()
+        return {"data": data}
     except HTTPException:
         raise
     except Exception as e:
@@ -31,10 +33,11 @@ async def get_kospi_index() -> Dict:
         raise HTTPException(status_code=503, detail=str(e))
 
 @router.get("/marketcap/top10")
-async def get_market_cap_top10() -> List[Dict]:
+async def get_market_cap_top10() -> Dict:
     """시가총액 상위 10개 기업 조회"""
     try:
-        return await stock_service.get_market_cap_top10()
+        data = await stock_service.get_market_cap_top10()
+        return {"data": data}
     except HTTPException:
         raise
     except Exception as e:
@@ -42,10 +45,11 @@ async def get_market_cap_top10() -> List[Dict]:
         raise HTTPException(status_code=503, detail=str(e))
 
 @router.get("/volume/top5")
-async def get_top_volume() -> List[Dict]:
+async def get_top_volume() -> Dict:
     """거래량 상위 5개 기업 조회"""
     try:
-        return await stock_service.get_top_volume()
+        data = await stock_service.get_top_volume()
+        return {"data": data}
     except HTTPException:
         raise
     except Exception as e:
@@ -56,7 +60,8 @@ async def get_top_volume() -> List[Dict]:
 async def get_industry_analysis(name: str) -> Dict:
     """산업별 분석 데이터 조회"""
     try:
-        return await stock_service.get_industry_analysis(name)
+        data = await stock_service.get_industry_analysis(name)
+        return {"data": data}
     except HTTPException:
         raise
     except Exception as e:

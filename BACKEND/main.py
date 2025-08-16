@@ -5,6 +5,7 @@ import os
 import logging
 from datetime import datetime
 import traceback
+import json
 
 # 로깅 설정
 logging.basicConfig(
@@ -25,6 +26,17 @@ def get_allowed_origins():
         ]
     return [origin.strip() for origin in cors_origins.split(",")]
 
+def log_request_details(request: Request) -> dict:
+    """요청 정보를 로그에 포함하기 위해 상세 정보를 추출합니다."""
+    return {
+        "method": request.method,
+        "url": str(request.url),
+        "path": request.url.path,
+        "query_params": dict(request.query_params),
+        "headers": dict(request.headers),
+        "timestamp": datetime.now().isoformat()
+    }
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Project 1 Backend API",
@@ -32,64 +44,75 @@ def create_app() -> FastAPI:
         version="1.0.0"
     )
 
-    # CORS 설정
-    allowed_origins = get_allowed_origins()
-    logger.info(f"설정된 CORS Origins: {allowed_origins}")
+    ALLOWED_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(',')
+    logger.info(f"설정된 CORS Origins: {ALLOWED_ORIGINS}")
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=allowed_origins,
+        allow_origins=ALLOWED_ORIGINS,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=["*"],
         expose_headers=["*"],
         max_age=3600,
     )
+    logger.info("CORS 미들웨어 설정 완료")
 
-    # 요청/응답 로깅 및 CORS 헤더 강제 설정 미들웨어
     @app.middleware("http")
-    async def cors_force_middleware(request: Request, call_next):
-        # 요청 로깅
-        logger.info(f"➡️ 요청: {request.method} {request.url}")
-        logger.debug(f"요청 헤더: {dict(request.headers)}")
-        
-        # Origin 헤더 체크
+    async def cors_debug_middleware(request: Request, call_next):
+        # 로그 레벨을 debug로 낮춤
+        req_details = await log_request_details(request)
+        logger.debug(f"➡️ 수신된 요청 상세 정보: {json.dumps(req_details, indent=2, ensure_ascii=False)}")
+
         origin = request.headers.get("origin")
         if origin:
-            logger.info(f"🌐 요청 Origin: {origin}")
-            if origin not in allowed_origins:
+            logger.debug(f"🌐 요청 Origin: {origin}")
+            if origin not in ALLOWED_ORIGINS:
                 logger.warning(f"⚠️ 허용되지 않은 Origin: {origin}")
-        
-        # 응답 처리
-        response = await call_next(request)
-        
-        # 응답 로깅
-        logger.info(f"⬅️ 응답 상태 코드: {response.status_code}")
-        logger.debug(f"응답 헤더: {dict(response.headers)}")
-        
-        # CORS 헤더 강제 설정
-        if origin and origin in allowed_origins:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            logger.debug(f"✅ CORS 헤더 설정: {origin}")
         else:
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            logger.debug("✅ CORS 헤더 설정: *")
-        
-        # 추가 CORS 헤더 설정
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Max-Age"] = "3600"
-        
-        return response
+            logger.debug("❓ Origin 헤더 없음")
 
-    # OPTIONS 요청 (preflight) 명시적 처리
+        if request.method == "OPTIONS":
+            logger.debug("🔍 Preflight 요청 감지")
+
+        try:
+            response = await call_next(request)
+            
+            # 로그 레벨을 debug로 낮춤
+            cors_headers = {k: v for k, v in response.headers.items() if k.lower().startswith('access-control')}
+            logger.debug(f"📤 응답 CORS 헤더: {json.dumps(cors_headers, indent=2)}")
+            logger.debug(f"📊 응답 상태 코드: {response.status_code}")
+            
+            # CORS 헤더는 유지하되 로그는 최소화
+            response.headers["Access-Control-Allow-Origin"] = origin if origin and origin in ALLOWED_ORIGINS else "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Max-Age"] = "3600"
+            
+            return response
+
+        except Exception as e:
+            logger.error(f"❌ 요청 처리 중 오류 발생: {str(e)}")
+            logger.error(traceback.format_exc())
+            return JSONResponse(
+                status_code=500,
+                content={"detail": str(e)},
+                headers={
+                    "Access-Control-Allow-Origin": origin if origin and origin in ALLOWED_ORIGINS else "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Max-Age": "3600"
+                }
+            )
+
     @app.options("/{rest_of_path:path}")
     async def preflight_handler(request: Request):
-        logger.info(f"🔄 Preflight 요청 처리: {request.url}")
+        logger.debug(f"🔄 Preflight 요청 처리: {request.url}")
         origin = request.headers.get("origin")
         
-        if origin and origin not in allowed_origins:
+        if origin and origin not in ALLOWED_ORIGINS:
             logger.warning(f"⚠️ Preflight: 허용되지 않은 Origin ({origin})")
             return JSONResponse(
                 content={"detail": "Not allowed origin"},
@@ -98,30 +121,30 @@ def create_app() -> FastAPI:
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
                     "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Credentials": "true",
                     "Access-Control-Max-Age": "3600"
                 }
             )
             
-        logger.info(f"✅ Preflight 요청 허용 (Origin: {origin})")
+        logger.debug(f"✅ Preflight 요청 허용 (Origin: {origin})")
         return JSONResponse(
             content={},
             headers={
                 "Access-Control-Allow-Origin": origin if origin else "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
                 "Access-Control-Allow-Headers": "*",
                 "Access-Control-Allow-Credentials": "true",
                 "Access-Control-Max-Age": "3600"
             }
         )
 
-    # 전역 예외 핸들러
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         error_msg = str(exc)
         logger.error(f"❌ 전역 에러: {error_msg}")
         logger.error(traceback.format_exc())
+        logger.error(f"에러 발생 요청 정보: {log_request_details(request)}")
         
-        origin = request.headers.get("origin")
         return JSONResponse(
             status_code=500,
             content={
@@ -131,15 +154,14 @@ def create_app() -> FastAPI:
                 "path": str(request.url)
             },
             headers={
-                "Access-Control-Allow-Origin": origin if origin in allowed_origins else "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
                 "Access-Control-Allow-Headers": "*",
                 "Access-Control-Allow-Credentials": "true",
                 "Access-Control-Max-Age": "3600"
             }
         )
 
-    # 메인 페이지 (헬스체크용)
     @app.get("/")
     async def root():
         logger.info("📍 루트 엔드포인트 호출")
@@ -155,13 +177,11 @@ def create_app() -> FastAPI:
             }
         }
 
-    # 헬스체크 엔드포인트
     @app.get("/health")
     @app.head("/health")
     async def health_check():
-        logger.info("🏥 헬스체크 엔드포인트 호출")
+        logger.debug("🏥 헬스체크 엔드포인트 호출")
         try:
-            # MongoDB 연결 체크
             from utils.database import db_manager
             db_status = "connected" if db_manager.is_connected() else "disconnected"
             
@@ -171,10 +191,6 @@ def create_app() -> FastAPI:
                 "services": {
                     "mongodb": db_status,
                     "api": "running"
-                },
-                "environment": {
-                    "railway": os.getenv("RAILWAY_ENVIRONMENT", "local"),
-                    "cors_origins": allowed_origins
                 }
             }
             logger.debug(f"헬스체크 응답: {response}")
@@ -191,9 +207,7 @@ def create_app() -> FastAPI:
                 }
             )
 
-    # 라우터 등록
     from routers import company, news, stock, investor
-    
     app.include_router(company.router, prefix="/api/v1")
     app.include_router(news.router, prefix="/api/v1")
     app.include_router(stock.router, prefix="/api/v1")

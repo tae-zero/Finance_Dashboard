@@ -28,14 +28,21 @@ class StockService:
                     try:
                         return func(*args, **kwargs)
                     except Exception as e:
-                        logger.warning(f"pykrx 내부 오류 (무시): {str(e)}")
+                        # 로그 레벨을 warning으로 낮춤
+                        logger.debug(f"pykrx 내부 오류 (무시): {str(e)}")
                         raise
                 return safe_func
             
             pykrx_util.wrapper = safe_wrapper
             logger.info("✅ pykrx 몽키패치 적용 완료")
         except Exception as e:
-            logger.warning(f"⚠️ pykrx 몽키패치 실패: {e}")
+            logger.debug(f"⚠️ pykrx 몽키패치 실패: {e}")
+    
+    def _normalize_krx_symbol(self, code: str) -> str:
+        """KRX 심볼 정규화"""
+        if code.isdigit() and len(code) == 6:
+            return f"{code}.KS"  # 코스피 기본
+        return code
     
     async def get_stock_price(self, ticker: str, period: str = "3y") -> List[Dict]:
         """주가 데이터 조회"""
@@ -66,7 +73,7 @@ class StockService:
                 logger.info("✅ pykrx로 코스피 데이터 조회 성공")
                 return result
         except Exception as e:
-            logger.warning(f"⚠️ pykrx 실패: {str(e)}")
+            logger.debug(f"⚠️ pykrx 실패: {str(e)}")
         
         # 2차 시도: yfinance (야후 파이낸스)
         try:
@@ -75,7 +82,7 @@ class StockService:
                 logger.info("✅ yfinance로 코스피 데이터 조회 성공")
                 return result
         except Exception as e:
-            logger.warning(f"⚠️ yfinance 실패: {str(e)}")
+            logger.debug(f"⚠️ yfinance 실패: {str(e)}")
         
         # 3차 시도: 정적 데이터 (최후 수단)
         try:
@@ -84,7 +91,7 @@ class StockService:
                 logger.info("✅ 정적 데이터로 코스피 데이터 조회 성공")
                 return result
         except Exception as e:
-            logger.warning(f"⚠️ 정적 데이터 실패: {str(e)}")
+            logger.debug(f"⚠️ 정적 데이터 실패: {str(e)}")
         
         # 모든 방법 실패
         logger.error("❌ 모든 코스피 데이터 조회 방법 실패")
@@ -115,25 +122,33 @@ class StockService:
             return await asyncio.to_thread(_fetch)
             
         except Exception as e:
-            logger.warning(f"pykrx 실패: {str(e)}")
+            logger.debug(f"pykrx 실패: {str(e)}")
             raise
     
     async def _fetch_kospi_yfinance(self) -> List[Dict]:
         """yfinance로 코스피 데이터 조회"""
         try:
             def _fetch():
-                # 여러 티커 시도
+                # KOSPI 지수 티커들 (우선순위 순)
                 tickers = ["^KS11", "005930.KS", "000660.KS"]
                 
                 for ticker in tickers:
                     try:
-                        df = yf.download(ticker, period="1y", interval="1d", auto_adjust=True)
-                        if not df.empty:
+                        df = yf.download(
+                            ticker,
+                            period="1y",
+                            interval="1d",
+                            auto_adjust=True,
+                            progress=False,  # 진행바 비활성화
+                            threads=False    # 스레드 비활성화
+                        )
+                        if not df.empty and 'Close' in df.columns:
                             break
-                    except:
+                    except Exception as ticker_error:
+                        logger.debug(f"티커 {ticker} 실패: {str(ticker_error)}")
                         continue
                 
-                if df.empty:
+                if df.empty or 'Close' not in df.columns:
                     raise ValueError("yfinance 데이터가 비어있습니다")
                 
                 df = df.reset_index()
@@ -145,13 +160,13 @@ class StockService:
             return await asyncio.to_thread(_fetch)
             
         except Exception as e:
-            logger.warning(f"yfinance 실패: {str(e)}")
+            logger.debug(f"yfinance 실패: {str(e)}")
             raise
     
     async def _get_static_kospi_data(self) -> List[Dict]:
         """정적 코스피 데이터 (최후 수단)"""
         try:
-            # 최근 30일간의 더미 데이터 (실제 데이터가 없을 때)
+            # 최근 30일간의 기본 데이터
             result = []
             base_price = 2500  # 기준 코스피 지수
             
@@ -170,7 +185,7 @@ class StockService:
             return result
             
         except Exception as e:
-            logger.warning(f"정적 데이터 생성 실패: {str(e)}")
+            logger.debug(f"정적 데이터 생성 실패: {str(e)}")
             raise
     
     async def get_market_cap_top10(self) -> Dict:
