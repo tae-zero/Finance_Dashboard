@@ -58,7 +58,7 @@ class StockService:
             return {"error": str(e)}
     
     async def get_kospi_data(self) -> List[Dict]:
-        """코스피 지수 데이터 조회 (다중 폴백 시스템)"""
+        """코스피 지수 데이터 조회 (간단한 폴백 시스템)"""
         # 1차 시도: pykrx (몽키패치 적용)
         try:
             result = await self._fetch_kospi_pykrx()
@@ -68,16 +68,7 @@ class StockService:
         except Exception as e:
             logger.warning(f"⚠️ pykrx 실패: {str(e)}")
         
-        # 2차 시도: FinanceDataReader (한국 금융 데이터)
-        try:
-            result = await self._fetch_kospi_financedatareader()
-            if result and len(result) > 0:
-                logger.info("✅ FinanceDataReader로 코스피 데이터 조회 성공")
-                return result
-        except Exception as e:
-            logger.warning(f"⚠️ FinanceDataReader 실패: {str(e)}")
-        
-        # 3차 시도: yfinance (야후 파이낸스)
+        # 2차 시도: yfinance (야후 파이낸스)
         try:
             result = await self._fetch_kospi_yfinance()
             if result and len(result) > 0:
@@ -86,7 +77,7 @@ class StockService:
         except Exception as e:
             logger.warning(f"⚠️ yfinance 실패: {str(e)}")
         
-        # 4차 시도: 정적 데이터 (최후 수단)
+        # 3차 시도: 정적 데이터 (최후 수단)
         try:
             result = await self._get_static_kospi_data()
             if result and len(result) > 0:
@@ -125,30 +116,6 @@ class StockService:
             
         except Exception as e:
             logger.warning(f"pykrx 실패: {str(e)}")
-            raise
-    
-    async def _fetch_kospi_financedatareader(self) -> List[Dict]:
-        """FinanceDataReader로 코스피 데이터 조회"""
-        try:
-            def _fetch():
-                import FinanceDataReader as fdr
-                
-                # KOSPI 지수 데이터
-                df = fdr.DataReader('KS11', start=datetime.now() - timedelta(days=365))
-                
-                if df.empty:
-                    raise ValueError("FinanceDataReader 데이터가 비어있습니다")
-                
-                df = df.reset_index()
-                df['Date'] = df['Date'].astype(str)
-                df['Close'] = df['Close'].astype(float)
-                
-                return df[['Date', 'Close']].to_dict(orient="records")
-            
-            return await asyncio.to_thread(_fetch)
-            
-        except Exception as e:
-            logger.warning(f"FinanceDataReader 실패: {str(e)}")
             raise
     
     async def _fetch_kospi_yfinance(self) -> List[Dict]:
