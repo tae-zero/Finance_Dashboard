@@ -1,3 +1,4 @@
+import os
 from utils.database import db_manager
 from utils.data_processor import DataProcessor
 from fastapi import HTTPException
@@ -5,10 +6,10 @@ from typing import Dict, List, Optional
 
 class CompanyService:
     def __init__(self):
-        # db_manager.collection 대신 get_collection 메서드 사용
-        self.collection = db_manager.get_collection("companies") if db_manager else None
-        self.explain = db_manager.get_collection("explain") if db_manager else None
-        self.outline = db_manager.get_collection("outline") if db_manager else None
+        # 환경변수에서 컬렉션명 가져오기
+        self.collection = db_manager.get_collection(os.getenv("COLLECTION_USERS", "users")) if db_manager else None
+        self.explain = db_manager.get_collection(os.getenv("COLLECTION_EXPLAIN", "explain")) if db_manager else None
+        self.outline = db_manager.get_collection(os.getenv("COLLECTION_OUTLINE", "outline")) if db_manager else None
     
     def get_company_data(self, name: str) -> Dict:
         """기업 상세 정보 조회"""
@@ -57,7 +58,7 @@ class CompanyService:
             raise HTTPException(status_code=404, detail="해당 기업 지표가 없습니다.")
         
         # 실제 데이터 구조 확인을 위한 로그
-        print(f"🔍 {name} 기업 지표 데이터 구조:", company_data.get("지표", {}))
+        print(f"�� {name} 기업 지표 데이터 구조:", company_data.get("지표", {}))
         
         return company_data.get("지표", {})
     

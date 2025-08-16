@@ -10,7 +10,7 @@ class DatabaseManager:
             raise ValueError("MONGODB_URI 환경변수가 설정되지 않았습니다.")
         
         # 데이터베이스 이름 가져오기
-        db_name = os.getenv("DB_NAME", "project1_db")
+        db_name = os.getenv("DB_NAME", "testDB")
         if not isinstance(db_name, str):
             raise ValueError("DB_NAME 환경변수가 문자열이어야 합니다.")
         
