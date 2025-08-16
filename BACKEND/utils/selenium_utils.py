@@ -58,7 +58,14 @@ class SeleniumManager:
                     # 디렉토리인 경우, 그 안에서 chromedriver 실행 파일 찾기
                     chromedriver_files = []
                     for file in os.listdir(driver_path):
-                        if file == "chromedriver" or (file.endswith("chromedriver") and not file.startswith("THIRD_PARTY")):
+                        # THIRD_PARTY, LICENSE, README 등 문서 파일 제외
+                        if (file == "chromedriver" or 
+                            (file.endswith("chromedriver") and 
+                             not file.startswith("THIRD_PARTY") and
+                             not file.startswith("LICENSE") and
+                             not file.startswith("README") and
+                             not file.startswith("NOTICE") and
+                             "NOTICES" not in file)):
                             chromedriver_files.append(file)
                     
                     if chromedriver_files:
@@ -67,6 +74,8 @@ class SeleniumManager:
                             driver_path = os.path.join(driver_path, "chromedriver")
                         else:
                             driver_path = os.path.join(driver_path, chromedriver_files[0])
+                        
+                        logger.info("✅ ChromeDriver 파일 선택: %s", driver_path)
                     else:
                         # chromedriver 파일을 찾지 못한 경우
                         raise FileNotFoundError(f"ChromeDriver 실행 파일을 찾을 수 없습니다: {driver_path}")
@@ -77,6 +86,11 @@ class SeleniumManager:
                     logger.info("✅ ChromeDriver 실행 권한 설정 완료: %s", driver_path)
                 else:
                     raise FileNotFoundError(f"ChromeDriver 파일이 존재하지 않습니다: {driver_path}")
+                
+                # 파일이 실제로 실행 가능한지 확인
+                if not os.access(driver_path, os.X_OK):
+                    logger.warning("⚠️ ChromeDriver 파일에 실행 권한이 없습니다. 권한을 다시 설정합니다.")
+                    os.chmod(driver_path, 0o755)
                 
                 service = Service(driver_path)
                 logger.info("✅ ChromeDriver 자동 설치 완료: %s", driver_path)
