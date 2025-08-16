@@ -3,7 +3,8 @@ import axios, { AxiosRequestConfig } from 'axios';
 const API_BASE_URL = '/api';   // Vercel rewrites 통로
 const API_PREFIX   = '/v1';    // 버전 별도 관리
 
-const api = axios.create({
+// axios 인스턴스 생성
+const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   // 전역 headers는 최소화 (프리플라이트 줄이기)
@@ -24,7 +25,7 @@ function toRelativeIfAbsolute(config: AxiosRequestConfig) {
   }
 }
 
-api.interceptors.request.use(
+axiosInstance.interceptors.request.use(
   (config) => {
     toRelativeIfAbsolute(config);
 
@@ -45,7 +46,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-api.interceptors.response.use(
+axiosInstance.interceptors.response.use(
   (res) => res,
   (error) => {
     console.error('API 오류:', error);
@@ -55,6 +56,30 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// API 객체 정의
+const api = {
+  get: (url: string, config?: any) => {
+    console.log('[api] GET 요청:', url);
+    return axiosInstance.get(url, config);
+  },
+  post: (url: string, data?: any, config?: any) => {
+    console.log('[api] POST 요청:', url);
+    return axiosInstance.post(url, data, config);
+  },
+  put: (url: string, data?: any, config?: any) => {
+    console.log('[api] PUT 요청:', url);
+    return axiosInstance.put(url, data, config);
+  },
+  delete: (url: string, config?: any) => {
+    console.log('[api] DELETE 요청:', url);
+    return axiosInstance.delete(url, config);
+  },
+  patch: (url: string, data?: any, config?: any) => {
+    console.log('[api] PATCH 요청:', url);
+    return axiosInstance.patch(url, data, config);
+  }
+};
 
 // 엔드포인트
 export const API_ENDPOINTS = {
@@ -86,5 +111,9 @@ export const API_ENDPOINTS = {
   TREASURE_DATA:                  `${API_PREFIX}/company/treasure/data`,
   TOP_RANKINGS:                   `${API_PREFIX}/investor/rankings/top5`,
 };
+
+// 디버깅을 위한 로그
+console.log('[api] API 객체 생성됨:', api);
+console.log('[api] API_ENDPOINTS 생성됨:', API_ENDPOINTS);
 
 export default api;

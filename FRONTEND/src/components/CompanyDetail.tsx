@@ -117,6 +117,15 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      // API 객체 확인
+      console.log("🔍 API 객체 확인:", api);
+      console.log("🔍 API_ENDPOINTS 확인:", API_ENDPOINTS);
+      
+      if (!api || typeof api.get !== 'function') {
+        console.error("❌ API 객체가 올바르게 로드되지 않았습니다:", api);
+        return;
+      }
+
       try {
         console.log("🏢 기업 정보 API 호출 중...");
         const companyRes = await api.get(API_ENDPOINTS.COMPANY(name));
