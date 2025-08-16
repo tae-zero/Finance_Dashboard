@@ -22,11 +22,11 @@ class InvestorService:
                 today = datetime.today().strftime("%Y%m%d")
                 yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
                 
-                # 투자자별 거래량 데이터 조회
+                # 투자자별 거래량 데이터 조회 (포지셔널 인자 사용)
                 df = stock.get_market_trading_value_by_investor(
-                    fromdate=yesterday,
-                    todate=today,
-                    market="KOSPI"
+                    yesterday,  # fromdate
+                    today,      # todate
+                    "KOSPI"     # market (포지셔널)
                 )
                 
                 if df.empty:
@@ -64,11 +64,11 @@ class InvestorService:
                 today = datetime.today().strftime("%Y%m%d")
                 yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
                 
-                # 투자자별 거래량
+                # 투자자별 거래량 (포지셔널 인자 사용)
                 df = stock.get_market_trading_value_by_investor(
-                    fromdate=yesterday,
-                    todate=today,
-                    ticker=ticker
+                    yesterday,  # fromdate
+                    today,      # todate
+                    ticker      # ticker (포지셔널)
                 )
                 
                 if df.empty:
@@ -102,9 +102,9 @@ class InvestorService:
                 start_date = end_date - timedelta(days=days)
                 
                 df = stock.get_market_trading_value_by_investor(
-                    fromdate=start_date.strftime("%Y%m%d"),
-                    todate=end_date.strftime("%Y%m%d"),
-                    market="KOSPI"
+                    start_date.strftime("%Y%m%d"),  # fromdate
+                    end_date.strftime("%Y%m%d"),    # todate
+                    "KOSPI"                         # market (포지셔널)
                 )
                 
                 if df.empty:
@@ -133,12 +133,10 @@ class InvestorService:
                 today = datetime.today().strftime("%Y%m%d")
                 
                 # 시가총액 상위 종목
-                market_cap_df = stock.get_market_cap_by_ticker(today, market="KOSPI")
-                top_market_cap = market_cap_df.nlargest(5, '시가총액')
+                market_cap_df = stock.get_market_cap_by_ticker(today, "KOSPI")  # 포지셔널 인자
                 
                 # 거래량 상위 종목
-                volume_df = stock.get_market_ohlcv(today, market="KOSPI")
-                top_volume = volume_df.nlargest(5, '거래량')
+                volume_df = stock.get_market_ohlcv(today, "KOSPI")  # 포지셔널 인자
                 
                 result = {
                     "시가총액_TOP5": [
@@ -147,7 +145,7 @@ class InvestorService:
                             "종목명": stock.get_market_ticker_name(ticker),
                             "시가총액": int(row['시가총액'] / 100000000)  # 억원 단위
                         }
-                        for ticker, row in top_market_cap.iterrows()
+                        for ticker, row in market_cap_df.nlargest(5, '시가총액').iterrows()
                     ],
                     "거래량_TOP5": [
                         {
@@ -155,7 +153,7 @@ class InvestorService:
                             "종목명": stock.get_market_ticker_name(ticker),
                             "거래량": int(row['거래량'])
                         }
-                        for ticker, row in top_volume.iterrows()
+                        for ticker, row in volume_df.nlargest(5, '거래량').iterrows()
                     ]
                 }
                 
