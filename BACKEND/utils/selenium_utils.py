@@ -40,8 +40,23 @@ class SeleniumManager:
                 chrome_options.add_argument("--ignore-certificate-errors")
                 chrome_options.add_argument("--disable-popup-blocking")
                 
-                # Dockerfile에서 설치한 Google Chrome 경로
-                chrome_options.binary_location = "/usr/bin/google-chrome"
+                # Dockerfile에서 설치한 Google Chrome 경로 (여러 경로 시도)
+                chrome_paths = [
+                    "/usr/bin/google-chrome",
+                    "/usr/bin/google-chrome-stable",
+                    "/opt/google/chrome/chrome"
+                ]
+                
+                chrome_found = False
+                for chrome_path in chrome_paths:
+                    if os.path.exists(chrome_path):
+                        chrome_options.binary_location = chrome_path
+                        logger.info(f"✅ Chrome 발견: {chrome_path}")
+                        chrome_found = True
+                        break
+                
+                if not chrome_found:
+                    logger.warning("⚠️ Chrome 경로를 찾을 수 없습니다. 기본 경로 사용")
                 
                 # ChromeDriver 경로 설정 (Dockerfile에서 설치)
                 driver_paths = [
