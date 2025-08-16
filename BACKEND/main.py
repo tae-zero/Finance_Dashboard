@@ -46,9 +46,9 @@ def create_app() -> FastAPI:
         max_age=3600,
     )
 
-    # 요청/응답 로깅 미들웨어
+    # 요청/응답 로깅 및 CORS 헤더 강제 설정 미들웨어
     @app.middleware("http")
-    async def logging_middleware(request: Request, call_next):
+    async def cors_force_middleware(request: Request, call_next):
         # 요청 로깅
         logger.info(f"➡️ 요청: {request.method} {request.url}")
         logger.debug(f"요청 헤더: {dict(request.headers)}")
@@ -67,11 +67,52 @@ def create_app() -> FastAPI:
         logger.info(f"⬅️ 응답 상태 코드: {response.status_code}")
         logger.debug(f"응답 헤더: {dict(response.headers)}")
         
-        # CORS 헤더 확인
+        # CORS 헤더 강제 설정
         if origin and origin in allowed_origins:
             response.headers["Access-Control-Allow-Origin"] = origin
+            logger.debug(f"✅ CORS 헤더 설정: {origin}")
+        else:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            logger.debug("✅ CORS 헤더 설정: *")
+        
+        # 추가 CORS 헤더 설정
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "3600"
         
         return response
+
+    # OPTIONS 요청 (preflight) 명시적 처리
+    @app.options("/{rest_of_path:path}")
+    async def preflight_handler(request: Request):
+        logger.info(f"🔄 Preflight 요청 처리: {request.url}")
+        origin = request.headers.get("origin")
+        
+        if origin and origin not in allowed_origins:
+            logger.warning(f"⚠️ Preflight: 허용되지 않은 Origin ({origin})")
+            return JSONResponse(
+                content={"detail": "Not allowed origin"},
+                status_code=403,
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Max-Age": "3600"
+                }
+            )
+            
+        logger.info(f"✅ Preflight 요청 허용 (Origin: {origin})")
+        return JSONResponse(
+            content={},
+            headers={
+                "Access-Control-Allow-Origin": origin if origin else "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "3600"
+            }
+        )
 
     # 전역 예외 핸들러
     @app.exception_handler(Exception)
@@ -93,6 +134,7 @@ def create_app() -> FastAPI:
                 "Access-Control-Allow-Origin": origin if origin in allowed_origins else "*",
                 "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
                 "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
                 "Access-Control-Max-Age": "3600"
             }
         )

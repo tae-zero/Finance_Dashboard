@@ -1,71 +1,90 @@
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 
-// API 기본 설정
-const API_BASE_URL = '/api/v1';  // 상대 경로 사용
+const API_BASE_URL = '/api';   // Vercel rewrites 통로
+const API_PREFIX   = '/v1';    // 버전 별도 관리
 
-// Axios 인스턴스 생성
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  }
+  // 전역 headers는 최소화 (프리플라이트 줄이기)
 });
 
-// 응답 인터셉터
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    console.error('API 오류:', error);
-    
-    if (error.response?.status === 503) {
-      console.warn('외부 서비스 일시적 오류');
+// 절대 URL이면 상대 URL로 강제 변환 (브라우저에서만)
+function toRelativeIfAbsolute(config: AxiosRequestConfig) {
+  const u = config.url || '';
+  if (typeof window !== 'undefined' && /^https?:\/\//i.test(u)) {
+    try {
+      const parsed = new URL(u);
+      config.url = parsed.pathname + parsed.search; // /api/... 형태만 남김
+      config.baseURL = API_BASE_URL;
+      console.warn('[api] Rewrote absolute URL to relative:', config.url);
+    } catch {
+      // ignore
     }
-    
-    return Promise.reject(error);
   }
-);
+}
 
-// 요청 인터셉터
 api.interceptors.request.use(
   (config) => {
-    // 요청 설정 수정
-    config.headers['X-Requested-With'] = 'XMLHttpRequest';
+    toRelativeIfAbsolute(config);
+
+    const method = (config.method || 'get').toLowerCase();
+    const hasBody = ['post', 'put', 'patch', 'delete'].includes(method) && config.data != null;
+
+    // 바디가 있는 요청에만 Content-Type 지정
+    if (hasBody) {
+      if (!config.headers) {
+        config.headers = {} as any;
+      }
+      config.headers['Content-Type'] = 'application/json';
+    }
+    // 커스텀 헤더(X-Requested-With 등) 추가 금지
+
     return config;
   },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (res) => res,
   (error) => {
+    console.error('API 오류:', error);
+    if (error?.response?.status === 503) {
+      console.warn('외부 서비스 일시적 오류');
+    }
     return Promise.reject(error);
   }
 );
 
+// 엔드포인트
 export const API_ENDPOINTS = {
-  // 기업 관련
-  COMPANY: (name: string) => `/company/${encodeURIComponent(name)}`,
-  COMPANY_NAMES: `/company/names/all`,
-  COMPANY_METRICS: (name: string) => `/company/metrics/${encodeURIComponent(name)}`,
-  COMPANY_SALES: (name: string) => `/company/sales/${encodeURIComponent(name)}`,
-  
-  // 뉴스 관련
-  HOT_NEWS: `/news/hot/kospi`,
-  MAIN_NEWS: `/news/earnings`,
-  COMPANY_NEWS: (keyword: string) => `/news/search?keyword=${encodeURIComponent(keyword)}`,
-  ANALYST_REPORT: (code: string) => `/news/analyst/report?code=${code}`,
-  
-  // 주가 관련
-  STOCK_PRICE: (ticker: string) => `/stock/price/${ticker}`,
-  KOSPI_DATA: `/stock/kospi/index`,
-  MARKET_CAP_TOP10: `/stock/marketcap/top10`,
-  TOP_VOLUME: `/stock/volume/top5`,
-  INDUSTRY_ANALYSIS: (name: string) => `/stock/industry/${encodeURIComponent(name)}`,
-  
-  // 투자자 관련
-  INVESTOR_VALUE: `/investor/value`,
-  INVESTOR_SUMMARY: (ticker: string) => `/investor/summary/${ticker}`,
-  INVESTOR_TRENDS: (days: number) => `/investor/trends?days=${days}`,
-  
+  // 기업
+  COMPANY: (name: string) => `${API_PREFIX}/company/${encodeURIComponent(name)}`,
+  COMPANY_NAMES:           `${API_PREFIX}/company/names/all`,
+  COMPANY_METRICS: (name: string) => `${API_PREFIX}/company/metrics/${encodeURIComponent(name)}`,
+  COMPANY_SALES:   (name: string) => `${API_PREFIX}/company/sales/${encodeURIComponent(name)}`,
+
+  // 뉴스
+  HOT_NEWS:        `${API_PREFIX}/news/hot/kospi`,
+  MAIN_NEWS:       `${API_PREFIX}/news/earnings`,
+  COMPANY_NEWS: (keyword: string) => `${API_PREFIX}/news/search?keyword=${encodeURIComponent(keyword)}`,
+  ANALYST_REPORT: (code: string) => `${API_PREFIX}/news/analyst/report?code=${encodeURIComponent(code)}`,
+
+  // 주가
+  STOCK_PRICE:   (ticker: string) => `${API_PREFIX}/stock/price/${encodeURIComponent(ticker)}`,
+  KOSPI_DATA:                      `${API_PREFIX}/stock/kospi/index`,
+  MARKET_CAP_TOP10:                `${API_PREFIX}/stock/marketcap/top10`,
+  TOP_VOLUME:                      `${API_PREFIX}/stock/volume/top5`,
+  INDUSTRY_ANALYSIS: (name: string) => `${API_PREFIX}/stock/industry/${encodeURIComponent(name)}`,
+
+  // 투자자
+  INVESTOR_VALUE:                 `${API_PREFIX}/investor/value`,
+  INVESTOR_SUMMARY: (ticker: string) => `${API_PREFIX}/investor/summary/${encodeURIComponent(ticker)}`,
+  INVESTOR_TRENDS:  (days: number)   => `${API_PREFIX}/investor/trends?days=${days}`,
+
   // 기타
-  TREASURE_DATA: `/company/treasure/data`,
-  TOP_RANKINGS: `/investor/rankings/top5`,
+  TREASURE_DATA:                  `${API_PREFIX}/company/treasure/data`,
+  TOP_RANKINGS:                   `${API_PREFIX}/investor/rankings/top5`,
 };
 
 export default api;

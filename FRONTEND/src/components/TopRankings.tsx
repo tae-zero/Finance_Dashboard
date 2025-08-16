@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { API_ENDPOINTS } from '../config/api';
+import api, { API_ENDPOINTS } from '../config/api';
 
 interface RankingItem {
   종목명?: string;
@@ -27,15 +26,15 @@ function TopRankings() {
   const [volumeData, setVolumeData] = useState<RankingItem[] | null>(null);
 
   useEffect(() => {
-    axios.get(API_ENDPOINTS.TOP_RANKINGS)
+    api.get(API_ENDPOINTS.TOP_RANKINGS)
       .then(res => setRankingData(res.data))
       .catch(err => console.error("📛 랭킹 데이터 오류:", err));
 
-    axios.get(API_ENDPOINTS.MARKET_CAP_TOP10)
+    api.get(API_ENDPOINTS.MARKET_CAP_TOP10)
       .then(res => setMarketCapData(res.data.시가총액_TOP10))
       .catch(err => console.error("📛 시가총액 데이터 오류:", err));
 
-    axios.get(API_ENDPOINTS.TOP_VOLUME)
+    api.get(API_ENDPOINTS.TOP_VOLUME)
       .then(res => {
         console.log("🔥 거래량 데이터:", res.data);
         setVolumeData(res.data);

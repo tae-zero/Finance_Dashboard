@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -14,7 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import TopRankings from './TopRankings';
-import { API_ENDPOINTS } from '../config/api';
+import api, { API_ENDPOINTS } from '../config/api';
 
 ChartJS.register(
   CategoryScale,
@@ -57,7 +56,7 @@ function Dashboard() {
     const fetchData = async () => {
       try {
         console.log("🔥 핫 뉴스 API 호출 중...");
-        const hotRes = await axios.get(API_ENDPOINTS.HOT_NEWS);
+        const hotRes = await api.get(API_ENDPOINTS.HOT_NEWS);
         console.log("✅ 핫 뉴스 성공:", hotRes.data);
         setHotNews(hotRes.data);
       } catch (err) {
@@ -66,7 +65,7 @@ function Dashboard() {
 
       try {
         console.log("📰 실적 뉴스 API 호출 중...");
-        const mainRes = await axios.get(API_ENDPOINTS.MAIN_NEWS);
+        const mainRes = await api.get(API_ENDPOINTS.MAIN_NEWS);
         console.log("✅ 실적 뉴스 성공:", mainRes.data);
         setMainNews(mainRes.data);
       } catch (err) {
@@ -75,7 +74,7 @@ function Dashboard() {
 
       try {
         console.log("📈 코스피 데이터 API 호출 중...");
-        const kospiRes = await axios.get(API_ENDPOINTS.KOSPI_DATA);
+        const kospiRes = await api.get(API_ENDPOINTS.KOSPI_DATA);
         console.log("✅ 코스피 데이터 성공:", kospiRes.data);
       
         const data = kospiRes.data;
@@ -105,7 +104,7 @@ function Dashboard() {
 
       try {
         console.log("💰 투자자별 매매 동향 API 호출 중...");
-        const investorRes = await axios.get(API_ENDPOINTS.INVESTOR_VALUE);
+        const investorRes = await api.get(API_ENDPOINTS.INVESTOR_VALUE);
         console.log("✅ 투자자별 매매 동향 성공:", investorRes.data);
         setInvestorData(investorRes.data);
       } catch (err) {

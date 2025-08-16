@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { API_ENDPOINTS } from '@/config/api';
+import api, { API_ENDPOINTS } from '../config/api';
 
 ChartJS.register(
   CategoryScale,
@@ -38,13 +38,9 @@ export default function KospiChart() {
     const fetchKospiData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(API_ENDPOINTS.KOSPI_DATA);
+        const response = await api.get(API_ENDPOINTS.KOSPI_DATA);
         
-        if (!response.ok) {
-          throw new Error('코스피 데이터를 가져오는데 실패했습니다.');
-        }
-        
-        const data = await response.json();
+        const data = response.data;
         setKospiData(data);
         setError(null);
       } catch (err) {

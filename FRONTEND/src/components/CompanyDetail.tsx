@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import { Line, Bar, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -22,7 +21,7 @@ import CompanySummary from './CompanySummary';
 import CompareChart from './CompareChart';
 import PieChart from './PieChart';
 import ShareholderChart from './ShareholderChart';
-import { API_ENDPOINTS } from '../config/api';
+import api, { API_ENDPOINTS } from '../config/api';
 
 ChartJS.register(
   LineElement, 
@@ -120,7 +119,7 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
     const fetchData = async () => {
       try {
         console.log("🏢 기업 정보 API 호출 중...");
-        const companyRes = await axios.get(API_ENDPOINTS.COMPANY(name));
+        const companyRes = await api.get(API_ENDPOINTS.COMPANY(name));
         console.log("✅ 기업 정보 성공:", companyRes.data);
         setCompany(companyRes.data);
 
@@ -130,10 +129,10 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
 
         // 병렬로 API 호출하여 성능 향상
         const [priceRes, newsRes, reportRes, investorsRes] = await Promise.allSettled([
-          axios.get(API_ENDPOINTS.STOCK_PRICE(ticker)),
-          axios.get(API_ENDPOINTS.COMPANY_NEWS(name)),
-          axios.get(API_ENDPOINTS.ANALYST_REPORT(`A${code}`)),
-          axios.get(API_ENDPOINTS.INVESTOR_SUMMARY(code))
+          api.get(API_ENDPOINTS.STOCK_PRICE(ticker)),
+          api.get(API_ENDPOINTS.COMPANY_NEWS(name)),
+          api.get(API_ENDPOINTS.ANALYST_REPORT(`A${code}`)),
+          api.get(API_ENDPOINTS.INVESTOR_SUMMARY(code))
         ]);
 
         if (priceRes.status === 'fulfilled') {

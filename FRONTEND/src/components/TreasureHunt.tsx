@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { API_ENDPOINTS } from '../config/api';
+import api, { API_ENDPOINTS } from '../config/api';
 
 interface TreasureData {
   기업명: string;
@@ -35,13 +35,15 @@ function TreasureHunt() {
   const [netIncome, setNetIncome] = useState<number>(0);
 
   useEffect(() => {
+    // 산업별 지표 데이터 로드
     fetch('/industry_metrics.json')
     .then(res => res.json())
     .then(setIndustryMetrics);
 
-    fetch(API_ENDPOINTS.TREASURE_DATA)
-      .then(res => res.json())
-      .then(json => {
+    // 보물찾기 데이터 로드
+    api.get(API_ENDPOINTS.TREASURE_DATA)
+      .then(res => {
+        const json = res.data;
         const cleaned = json.filter((item: TreasureData) => {
           const hasAnyPER = Object.values(item.PER || {}).some(v => typeof v === 'number');
           const hasAnyPBR = Object.values(item.PBR || {}).some(v => typeof v === 'number');
