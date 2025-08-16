@@ -2,21 +2,17 @@ version: '3.8'
 
 services:
   backend:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    build: .
     ports:
       - "7000:7000"
     environment:
       - PORT=7000
+      - HOST=0.0.0.0
       - MONGODB_URI=${MONGODB_URI}
       - DB_NAME=${DB_NAME}
+      - PYTHONUNBUFFERED=1
       - TZ=Asia/Seoul
     volumes:
       - .:/app
+    command: python start.py
     restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3

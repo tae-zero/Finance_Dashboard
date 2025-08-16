@@ -1,4 +1,3 @@
-# Python 3.11 slim 이미지 사용
 FROM python:3.11-slim
 
 # 시스템 패키지 설치
@@ -37,15 +36,16 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 환경 변수 설정
-ENV PORT=7000
-ENV PYTHONUNBUFFERED=1
 ENV TZ=Asia/Seoul
+ENV PYTHONUNBUFFERED=1
+ENV PORT=7000
+ENV HOST=0.0.0.0
 
-# 한국 시간대 설정
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# CORS 헤더 설정
+ENV CORS_ORIGINS="https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app,https://finance-dashboard.vercel.app,https://finance.taezero.com,http://localhost:3000"
 
-# 실행 권한 설정
-RUN chmod +x /app/start.sh
+# 포트 노출
+EXPOSE 7000
 
-# 시작 스크립트 실행
-CMD ["/app/start.sh"]
+# 시작 명령어
+CMD ["python", "start.py"]
