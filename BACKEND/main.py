@@ -13,15 +13,12 @@ app = FastAPI(
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app",
-        "https://finance-dashboard-43ovkbikr-jeongtaeyeongs-projects.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:5173"
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],  # 모든 도메인 허용
+    allow_credentials=False,  # credentials 비활성화
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # 라우터 등록
