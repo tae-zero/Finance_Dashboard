@@ -80,3 +80,42 @@
 2025-08-16 16:52:57,975 - startup - INFO - 📍 호스트: 0.0.0.0
 2025-08-16 16:52:57,976 - startup - INFO - 🔌 포트: 7000
 2025-08-16 16:52:59,727 - startup - ERROR - ❌ 서버 시작 실패: No module named 'aiohttp'
+2025-08-16 16:53:26,790 - startup - INFO - 🔄 서비스 초기화 중...
+2025-08-16 16:53:27,280 - startup - INFO - ✅ 기본 패키지 확인 완료
+2025-08-16 16:53:27,280 - startup - INFO - ✅ 환경변수 확인 완료
+2025-08-16 16:53:27,688 - database - INFO - ✅ MongoDB 연결 성공!
+2025-08-16 16:53:27,689 - database - INFO - ✅ 데이터베이스 'testDB' 선택됨
+2025-08-16 16:53:27,690 - startup - ERROR - ⚠️ 서비스 초기화 중 오류 발생: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2025-08-16 16:53:27,690 - startup - WARNING - ⚠️ 일부 기능이 제한될 수 있습니다.
+2025-08-16 16:53:27,691 - startup - INFO - 🚀 서버 시작 준비 중...
+2025-08-16 16:53:27,692 - startup - INFO - 📍 호스트: 0.0.0.0
+2025-08-16 16:53:27,692 - startup - INFO - 🔌 포트: 7000
+2025-08-16 16:53:28,516 - startup - ERROR - ❌ 서버 시작 실패: No module named 'aiohttp'
+2025-08-16 16:57:15,980 - startup - INFO - 🔄 서비스 초기화 중...
+2025-08-16 16:57:16,401 - startup - INFO - ✅ 기본 패키지 확인 완료
+2025-08-16 16:57:16,401 - startup - INFO - ✅ 환경변수 확인 완료
+2025-08-16 16:57:16,821 - database - INFO - ✅ MongoDB 연결 성공!
+2025-08-16 16:57:16,822 - database - INFO - ✅ 데이터베이스 'testDB' 선택됨
+2025-08-16 16:57:16,822 - startup - ERROR - ⚠️ 서비스 초기화 중 오류 발생: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2025-08-16 16:57:16,822 - startup - WARNING - ⚠️ 일부 기능이 제한될 수 있습니다.
+2025-08-16 16:57:16,823 - startup - INFO - 🚀 서버 시작 준비 중...
+2025-08-16 16:57:16,823 - startup - INFO - 📍 호스트: 0.0.0.0
+2025-08-16 16:57:16,824 - startup - INFO - 🔌 포트: 7000
+2025-08-16 16:57:17,615 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-16 16:57:18,015 - startup - ERROR - ❌ 서버 시작 실패: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2025-08-16 17:05:14,055 - startup - INFO - 🔄 서비스 초기화 중...
+2025-08-16 17:05:14,472 - startup - INFO - ✅ 기본 패키지 확인 완료
+2025-08-16 17:05:14,473 - startup - INFO - ✅ 환경변수 확인 완료
+2025-08-16 17:05:14,889 - database - INFO - ✅ MongoDB 연결 성공!
+2025-08-16 17:05:14,890 - database - INFO - ✅ 데이터베이스 'testDB' 선택됨
+2025-08-16 17:05:14,890 - startup - INFO - ✅ MongoDB 연결 성공
+2025-08-16 17:05:15,359 - matplotlib.font_manager - INFO - generated new fontManager
+2025-08-16 17:05:16,005 - startup - INFO - ✅ 데이터 프로세서 초기화 완료
+2025-08-16 17:05:16,092 - startup - INFO - ✅ Selenium 초기화 완료
+2025-08-16 17:05:16,327 - startup - INFO - ✅ pykrx 초기화 성공
+2025-08-16 17:05:19,199 - yfinance - ERROR - 429 Client Error: Too Many Requests for url: https://query2.finance.yahoo.com/v10/finance/quoteSummary/005930.KS?modules=financialData%2CquoteType%2CdefaultKeyStatistics%2CassetProfile%2CsummaryDetail&corsDomain=finance.yahoo.com&formatted=false&symbol=005930.KS&crumb=Edge%3A+Too+Many+Requests
+2025-08-16 17:05:20,769 - startup - WARNING - ⚠️ yfinance 초기화 실패: Expecting value: line 1 column 1 (char 0)
+2025-08-16 17:05:20,769 - startup - WARNING - ⚠️ 더미 데이터를 사용합니다.
+2025-08-16 17:05:20,770 - startup - INFO - 🚀 서버 시작 준비 중...
+2025-08-16 17:05:20,771 - startup - INFO - 📍 호스트: 0.0.0.0
+2025-08-16 17:05:20,771 - startup - INFO - 🔌 포트: 7000

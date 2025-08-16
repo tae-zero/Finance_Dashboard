@@ -9,6 +9,7 @@ class DatabaseManager:
     def __init__(self):
         self.client: Optional[MongoClient] = None
         self.db = None
+        self._connected = False
         self.connect()
 
     def connect(self):
@@ -24,22 +25,28 @@ class DatabaseManager:
             
             # 연결 테스트
             self.client.admin.command('ping')
+            self._connected = True
             logger.info("✅ MongoDB 연결 성공!")
             logger.info(f"✅ 데이터베이스 '{db_name}' 선택됨")
             
         except Exception as e:
             logger.error(f"MongoDB 연결 실패: {str(e)}")
+            self._connected = False
             raise
+
+    def is_connected(self) -> bool:
+        """연결 상태 확인"""
+        return self._connected and self.client is not None and self.db is not None
 
     def get_database(self):
         """데이터베이스 객체 반환"""
-        if not self.db:
+        if not self.is_connected():
             self.connect()
         return self.db
 
     def get_collection(self, collection_name: str):
         """컬렉션 객체 반환"""
-        if not self.db:
+        if not self.is_connected():
             self.connect()
         return self.db[collection_name]
 
@@ -49,6 +56,7 @@ class DatabaseManager:
             self.client.close()
             self.client = None
             self.db = None
+            self._connected = False
 
     def __del__(self):
         """소멸자에서 연결 정리"""
