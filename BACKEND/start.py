@@ -3,57 +3,36 @@ import uvicorn
 import time
 from datetime import datetime, timedelta
 
-def init_pykrx():
+def check_environment():
+    """환경 체크"""
     try:
-        from pykrx import stock
+        # 필수 패키지 임포트 체크
         import pandas as pd
+        import numpy as np
+        import requests
         
-        # 오늘 날짜
-        today = datetime.now()
-        # 1주일 전 날짜
-        week_ago = today - timedelta(days=7)
+        print("✅ 기본 패키지 확인 완료")
         
-        # 날짜 형식 변환
-        today_str = today.strftime('%Y%m%d')
-        week_ago_str = week_ago.strftime('%Y%m%d')
+        # 환경변수 체크
+        required_envs = ['MONGODB_URI', 'DB_NAME', 'PORT']
+        missing_envs = [env for env in required_envs if not os.getenv(env)]
         
-        # 코스피 지수로 초기화 (개별 종목 대신)
-        result = stock.get_index_ohlcv_by_date(week_ago_str, today_str, "1001")
-        if not result.empty:
-            print("✅ pykrx 초기화 성공")
+        if missing_envs:
+            print(f"⚠️ 누락된 환경변수: {', '.join(missing_envs)}")
         else:
-            print("⚠️ pykrx 데이터 없음")
+            print("✅ 환경변수 확인 완료")
+            
+    except ImportError as e:
+        print(f"⚠️ 패키지 임포트 오류: {str(e)}")
     except Exception as e:
-        print(f"⚠️ pykrx 초기화 중 오류 발생: {str(e)}")
-        print("⚠️ pykrx 초기화 실패, 서비스 일부 기능이 제한될 수 있습니다.")
-
-def init_yfinance():
-    try:
-        import yfinance as yf
-        import time
-        
-        # 요청 간격 조절
-        time.sleep(2)
-        
-        # 코스피 지수로 초기화 (개별 종목 대신)
-        ticker = yf.Ticker("^KS11")
-        history = ticker.history(period="1d")
-        
-        if not history.empty:
-            print("✅ yfinance 초기화 성공")
-        else:
-            print("⚠️ yfinance 데이터 없음")
-    except Exception as e:
-        print(f"⚠️ yfinance 초기화 중 오류 발생: {str(e)}")
-        print("⚠️ yfinance 초기화 실패, 서비스 일부 기능이 제한될 수 있습니다.")
+        print(f"⚠️ 환경 체크 중 오류 발생: {str(e)}")
 
 if __name__ == "__main__":
     print("🔄 서비스 초기화 중...")
     time.sleep(5)  # MongoDB 연결 대기
     
-    # 초기화 시도
-    init_pykrx()
-    init_yfinance()
+    # 환경 체크
+    check_environment()
     
     # 서버 시작
     port = int(os.getenv("PORT", 7000))
