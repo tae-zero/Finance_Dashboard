@@ -9,17 +9,20 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Chrome 설치 (안정적인 버전 120)
-RUN wget -q https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_120.0.6099.109-1_amd64.deb -O /tmp/chrome.deb \
+# Chrome 설치 (간단한 방법)
+RUN curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb \
     && apt-get update \
     && apt-get install -y /tmp/chrome.deb \
     && rm /tmp/chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
-# ChromeDriver 설치 (Chrome 120과 호환)
-RUN wget -q https://chromedriver.storage.googleapis.com/120.0.6099.109/chromedriver_linux64.zip -O /tmp/chromedriver.zip \
+# ChromeDriver 설치 (최신 버전)
+RUN wget -q https://chromedriver.storage.googleapis.com/LATEST_RELEASE -O /tmp/chromedriver_version \
+    && CHROMEDRIVER_VERSION=$(cat /tmp/chromedriver_version) \
+    && echo "ChromeDriver 버전: $CHROMEDRIVER_VERSION" \
+    && wget -q "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" -O /tmp/chromedriver.zip \
     && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
-    && rm /tmp/chromedriver.zip \
+    && rm /tmp/chromedriver.zip /tmp/chromedriver_version \
     && chmod +x /usr/local/bin/chromedriver
 
 # 작업 디렉토리 설정
