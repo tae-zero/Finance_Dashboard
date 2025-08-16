@@ -50,10 +50,39 @@ class SeleniumManager:
             
             # webdriver-manager로 자동 ChromeDriver 관리
             try:
-                service = Service(ChromeDriverManager().install())
-                logger.info("✅ ChromeDriver 자동 설치 완료")
+                # webdriver-manager로 ChromeDriver 다운로드
+                driver_path = ChromeDriverManager().install()
+                
+                # 다운로드된 경로에서 실제 chromedriver 실행 파일 찾기
+                if os.path.isdir(driver_path):
+                    # 디렉토리인 경우, 그 안에서 chromedriver 실행 파일 찾기
+                    chromedriver_files = []
+                    for file in os.listdir(driver_path):
+                        if file == "chromedriver" or (file.endswith("chromedriver") and not file.startswith("THIRD_PARTY")):
+                            chromedriver_files.append(file)
+                    
+                    if chromedriver_files:
+                        # 가장 적합한 파일 선택 (chromedriver가 우선)
+                        if "chromedriver" in chromedriver_files:
+                            driver_path = os.path.join(driver_path, "chromedriver")
+                        else:
+                            driver_path = os.path.join(driver_path, chromedriver_files[0])
+                    else:
+                        # chromedriver 파일을 찾지 못한 경우
+                        raise FileNotFoundError(f"ChromeDriver 실행 파일을 찾을 수 없습니다: {driver_path}")
+                
+                # 실행 권한 확인 및 설정
+                if os.path.exists(driver_path):
+                    os.chmod(driver_path, 0o755)  # 실행 권한 부여
+                    logger.info("✅ ChromeDriver 실행 권한 설정 완료: %s", driver_path)
+                else:
+                    raise FileNotFoundError(f"ChromeDriver 파일이 존재하지 않습니다: {driver_path}")
+                
+                service = Service(driver_path)
+                logger.info("✅ ChromeDriver 자동 설치 완료: %s", driver_path)
+                
             except Exception as e:
-                logger.warning(f"⚠️ ChromeDriverManager 실패: {e}")
+                logger.warning("⚠️ ChromeDriverManager 실패: %s", e)
                 # 폴백: 시스템 PATH에서 찾기
                 service = Service("chromedriver")
                 logger.info("✅ 시스템 PATH에서 ChromeDriver 사용")
@@ -64,8 +93,8 @@ class SeleniumManager:
             return self.driver
             
         except Exception as e:
-            logger.error(f"❌ WebDriver 생성 실패: {str(e)}")
-            logger.error(traceback.format_exc())
+            logger.error("❌ WebDriver 생성 실패: %s", str(e))
+            logger.error("Traceback:\n%s", traceback.format_exc())
             return None
 
     async def quit_driver(self):
