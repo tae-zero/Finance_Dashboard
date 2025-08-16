@@ -11,15 +11,31 @@ app = FastAPI(
 )
 
 # CORS 설정
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 모든 도메인 허용
-    allow_credentials=False,  # credentials 비활성화
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
-)
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+@app.middleware("http")
+async def cors_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Max-Age"] = "3600"
+    return response
+
+@app.options("/{full_path:path}")
+async def options_handler(request: Request, full_path: str):
+    return JSONResponse(
+        status_code=200,
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "3600",
+        },
+    )
 
 # 라우터 등록
 app.include_router(company.router, prefix="/api/v1")
