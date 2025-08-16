@@ -18,6 +18,9 @@ class SeleniumManager:
         options.add_argument('--disable-gpu')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-web-security')
+        options.add_argument('--allow-running-insecure-content')
+        options.add_argument('--disable-features=VizDisplayCompositor')
         options.add_argument('--window-size=1920x1080')
         
         # 추가 옵션이 있으면 적용
@@ -26,10 +29,20 @@ class SeleniumManager:
                 options.add_argument(option)
         
         # 드라이버 생성
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()), 
-            options=options
-        )
+        try:
+            # ChromeDriver 자동 설치 (더 안정적인 방법)
+            driver = webdriver.Chrome(options=options)
+        except Exception as e:
+            print(f"ChromeDriver 오류: {e}")
+            try:
+                # 대체 방법: ChromeDriverManager 사용
+                driver = webdriver.Chrome(
+                    service=Service(ChromeDriverManager().install()), 
+                    options=options
+                )
+            except Exception as e2:
+                print(f"ChromeDriverManager 오류: {e2}")
+                raise Exception(f"ChromeDriver 초기화 실패: {e}")
         
         return driver
     

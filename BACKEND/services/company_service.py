@@ -48,6 +48,9 @@ class CompanyService:
         if not company_data:
             raise HTTPException(status_code=404, detail="해당 기업 지표가 없습니다.")
         
+        # 실제 데이터 구조 확인을 위한 로그
+        print(f"🔍 {name} 기업 지표 데이터 구조:", company_data.get("지표", {}))
+        
         return company_data.get("지표", {})
     
     def get_sales_data(self, name: str) -> List[Dict]:

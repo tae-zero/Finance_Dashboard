@@ -1,253 +1,155 @@
+/* App.css - 메인 애플리케이션 스타일 */
 
-
-body {
-  font-family: 'Pretendard', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  background-color: #f8f9fb;
-  color: #333;
-  font-size: 16px; /* ✅ px 고정 */
-}
-
+/* 기본 레이아웃 */
 .app-layout {
-  display: flex;
   min-height: 100vh;
-  background-color: #f8f9fb;
-  align-items: center;
-  flex-direction: column; /* 추가 */
+  background-color: #f5f5f5;
 }
 
-/* 줌아웃 방지를 위한 전체 래퍼 */
-.fixed-zoom-wrapper {
-  transform: scale(1);
-  transform-origin: top left;
-  width: 100%;
-  min-width: 1400px;
-}
-
-/* 사이드바 영역 */
-.sidebar {
-  width: 260px;
-  padding: 20px;
-  background-color: #ffffff;
-  border-right: 1px solid #e0e0e0;
-  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.03);
-  flex-shrink: 0;
-  overflow-y: auto;
-  margin-top: 10px;
-  top: 210px;
-}
-
-.sidebar h3 {
-  margin-top: 0;
-  font-size: 16px;
-  color: #222;
-}
-
-.sidebar input {
-  width: 100%;
-  padding: 8px;
-  font-size: 14px;
-  margin-bottom: 6px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  box-sizing: border-box;
-}
-
-.sidebar button {
-  padding: 6px 10px;
-  font-size: 14px;
-  background: #007acc;
+/* 페이지 헤더 배너 */
+.page-header-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  padding: 20px 0;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-.sidebar button:hover {
-  background: #005fa3;
-}
-
-.sidebar details summary {
-  font-weight: 500;
-  margin-top: 20px;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.sidebar a {
-  text-decoration: none;
-  color: #333;
-  background-color: #f0f0f0;
-  padding: 6px 10px;
-  border-radius: 6px;
-  display: block;
-  font-size: 14px;
-}
-
-.sidebar a:hover {
-  background-color: #e0e0e0;
-}
-
-/* 본문 + 인사이트 영역 */
-.dashboard-container {
-  display: flex;
-  flex-direction: row;
-  gap: 12px;
-  padding: 40px 20px;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 1440px;
-  min-width: 1400px;
+.page-header-banner .inner {
+  max-width: 1200px;
   margin: 0 auto;
+  padding: 0 20px;
 }
 
-section {
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-section h2 {
-  font-size: 18px;
-  margin-bottom: 16px;
-  color: #444;
-}
-
-ul {
-  padding-left: 20px;
+.banner-texts h1 {
   margin: 0;
+  font-size: 2.5rem;
+  font-weight: bold;
 }
 
-ul li {
-  margin-bottom: 10px;
-  line-height: 1.6;
+.banner-texts h2 {
+  margin: 10px 0 0 0;
+  font-size: 1.2rem;
+  font-weight: normal;
+  opacity: 0.9;
 }
 
-ul li a {
-  text-decoration: none;
-  color: #0077cc;
-  transition: color 0.2s ease;
-}
-
-ul li a:hover {
-  color: #004f8a;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
+/* 가이드 버튼 */
+.guide-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 25px;
+  cursor: pointer;
   font-size: 14px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  margin-top: 15px;
 }
 
-thead {
-  background-color: #f0f0f0;
+.guide-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
 }
 
-thead th {
-  text-align: left;
-  padding: 10px;
-  border-bottom: 1px solid #ccc;
-}
-
-tbody td {
-  padding: 10px;
-  border-bottom: 1px solid #eee;
-}
-
-tbody tr:hover {
-  background-color: #f9f9f9;
+/* 대시보드 컨테이너 */
+.dashboard-container {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  margin: 20px;
 }
 
 .content-wrapper {
-  flex: 1;
-  width: 100%;
-  box-sizing: border-box;
+  padding: 20px;
 }
 
+/* 사이드바 */
+.sidebar {
+  width: 260px;
+  background: white;
+  padding: 20px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* 인사이트 패널 */
 .insight-panel {
-  width: 100%;
-  max-width: 300px;
-  padding: 24px;
-  background-color: #ffffff;
-  border: 1px solid #ccc;
-  font-size: 15px;
-  overflow-x: auto;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
-  border-radius: 8px;
-  flex-shrink: 0;
-  flex-wrap: nowrap;
+  margin-bottom: 30px;
 }
 
-.dashboard-banner {
-  width: 100%;
-  padding: 20px 30px;
-  background-color: #007acc;
-  color: white;
-  font-size: 24px;
-  font-weight: 700;
-  text-align: center;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  border-bottom: 1px solid #ccc;
-  position: sticky;
-  top: 0;
-  z-index: 999;
-}
-
-/* 배너 */
-.page-header-banner {
-  width: 75vw;
-  background-color: #f8f9fa;
-  color: black;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  z-index: 999;
-  padding: 50px 0; 
-}
-
-
-.page-header-banner .inner {
-  width: 100%;
-  max-width: 1400px;
-  padding: 0 20px;
-  display: flex;
-  flex-direction: column;  /* ✅ 수직 배치 */
-  align-items: center;
-  text-align: center;
-  position: relative;
-}
-
-.page-header-banner h1 {
-  font-size: 50px;
-  font-weight: 800;
+/* 뉴스 리스트 */
+.insight-panel ul {
+  list-style: none;
+  padding: 0;
   margin: 0;
 }
 
-.page-header-banner h2 {
-  font-size: 24px;
-  margin: 10px 0 0;
-  font-weight: 400;
-  color: #333;
+.insight-panel li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
 }
 
-.guide-button {
-  position: absolute;
-  right: 0px;
-  bottom: 0px;
-  padding: 8px 14px;
+.insight-panel li:last-child {
+  border-bottom: none;
+}
+
+.insight-panel a {
+  color: #333;
+  text-decoration: none;
   font-size: 14px;
-  border: 1px solid #007bff;
-  background: #fff;
-  color: #007bff;
-  border-radius: 6px;
-  cursor: pointer;
+  line-height: 1.4;
+}
+
+.insight-panel a:hover {
+  color: #007acc;
+  text-decoration: underline;
+}
+
+/* 테이블 스타일 */
+.indicator-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14px;
+}
+
+.indicator-table th,
+.indicator-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.indicator-table th {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+.indicator-table .right {
+  text-align: right;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+  }
+  
+  .page-header-banner .inner {
+    padding: 0 10px;
+  }
+  
+  .banner-texts h1 {
+    font-size: 2rem;
+  }
+  
+  .banner-texts h2 {
+    font-size: 1rem;
+  }
 }

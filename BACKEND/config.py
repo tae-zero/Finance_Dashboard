@@ -15,7 +15,7 @@ COLLECTION_INDUSTRY = os.getenv("COLLECTION_INDUSTRY")
 # 서버 설정
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8000"))
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 # 기타 설정
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
