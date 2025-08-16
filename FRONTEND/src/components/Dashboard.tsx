@@ -90,7 +90,8 @@ function Dashboard() {
         const kospiRes = await api.get(API_ENDPOINTS.KOSPI_DATA);
         console.log("✅ 코스피 데이터 성공:", kospiRes.data);
       
-        const data = kospiRes.data;
+        // 백엔드에서 {data: [...]} 형태로 반환하므로 response.data.data로 접근
+        const data = kospiRes.data.data || kospiRes.data;
         if (!Array.isArray(data) || data.length === 0) {
           console.warn("⚠️ KOSPI 데이터 없음");
           return;
@@ -119,7 +120,31 @@ function Dashboard() {
         console.log("💰 투자자별 매매 동향 API 호출 중...");
         const investorRes = await api.get(API_ENDPOINTS.INVESTOR_VALUE);
         console.log("✅ 투자자별 매매 동향 성공:", investorRes.data);
-        setInvestorData(investorRes.data);
+        
+        // 백엔드에서 {data: {...}} 형태로 반환하므로 response.data.data로 접근
+        const data = investorRes.data.data || investorRes.data;
+        if (!data || !data.투자자별_거래량 || !Array.isArray(data.투자자별_거래량)) {
+          console.warn("⚠️ 투자자 데이터 구조 오류:", data);
+          return;
+        }
+        
+        // 최신 데이터 사용 (가장 최근 날짜)
+        const latestData = data.투자자별_거래량[data.투자자별_거래량.length - 1];
+        
+        // 테이블용 데이터 변환
+        const tableData = [
+          { 항목: '개인', 매도: latestData.individual, 매수: latestData.individual, 순매수: 0 },
+          { 항목: '외국인', 매도: latestData.foreign, 매수: latestData.foreign, 순매수: 0 },
+          { 항목: '기관', 매도: latestData.institution, 매수: latestData.institution, 순매수: 0 },
+          { 항목: '금융투자', 매도: latestData.financial, 매수: latestData.financial, 순매수: 0 },
+          { 항목: '보험', 매도: latestData.insurance, 매수: latestData.insurance, 순매수: 0 },
+          { 항목: '투신', 매도: latestData.investment, 매수: latestData.investment, 순매수: 0 },
+          { 항목: '은행', 매도: latestData.bank, 매수: latestData.bank, 순매수: 0 },
+          { 항목: '연기금', 매도: latestData.pension, 매수: latestData.pension, 순매수: 0 },
+          { 항목: '기타법인', 매도: latestData.other, 매수: latestData.other, 순매수: 0 }
+        ];
+        
+        setInvestorData(tableData);
       } catch (err) {
         console.error("❌ 투자자별 매매 동향 오류:", err);
       }

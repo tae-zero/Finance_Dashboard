@@ -40,7 +40,14 @@ export default function KospiChart() {
         setLoading(true);
         const response = await api.get(API_ENDPOINTS.KOSPI_DATA);
         
-        const data = response.data;
+        // 백엔드에서 {data: [...]} 형태로 반환하므로 response.data.data로 접근
+        const data = response.data.data || response.data;
+        
+        if (!data || !Array.isArray(data)) {
+          console.warn('KOSPI 데이터 구조 오류:', response.data);
+          throw new Error('데이터 구조가 올바르지 않습니다.');
+        }
+        
         setKospiData(data);
         setError(null);
       } catch (err) {
