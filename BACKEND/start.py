@@ -135,12 +135,13 @@ async def startup():
     await initialize_services()
     
     # 서버 시작
-    port = int(os.getenv("PORT", 7000))
+    port = 7000  # 환경변수 무시하고 강제로 7000 사용
     host = os.getenv("HOST", "0.0.0.0")
     
     logger.info(f"🚀 서버 시작 준비 중...")
     logger.info(f"📍 호스트: {host}")
     logger.info(f"🔌 포트: {port}")
+    logger.info(f"⚠️ 환경변수 PORT 무시하고 강제로 7000 사용")
     
     # uvicorn 설정
     config = uvicorn.Config(

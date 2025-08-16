@@ -206,8 +206,10 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 7000))
+    # 포트를 강제로 7000으로 설정
+    port = 7000
     host = os.getenv("HOST", "0.0.0.0")
     
     logger.info(f"🚀 서버 시작 - 호스트: {host}, 포트: {port}")
+    logger.info(f"⚠️ 환경변수 PORT 무시하고 강제로 7000 사용")
     uvicorn.run(app, host=host, port=port, log_level="debug")
