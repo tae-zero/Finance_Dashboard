@@ -7,18 +7,22 @@ logger = logging.getLogger("company_service")
 
 class CompanyService:
     def __init__(self):
+        # 초기화 시점에 컬렉션을 가져오지 않음
+        pass
+
+    def _get_collection(self, collection_name: str):
+        """컬렉션 가져오기 (필요할 때마다)"""
         try:
-            self.collection = db_manager.get_collection(os.getenv("COLLECTION_USERS", "users"))
-            self.explain = db_manager.get_collection(os.getenv("COLLECTION_EXPLAIN", "explain"))
-            self.outline = db_manager.get_collection(os.getenv("COLLECTION_OUTLINE", "outline"))
+            return db_manager.get_collection(collection_name)
         except Exception as e:
-            logger.error(f"CompanyService 초기화 실패: {str(e)}")
-            raise HTTPException(status_code=503, detail="서비스를 일시적으로 사용할 수 없습니다.")
+            logger.error(f"컬렉션 가져오기 실패 ({collection_name}): {str(e)}")
+            raise HTTPException(status_code=503, detail="데이터베이스 연결 실패")
 
     async def get_company_data(self, company_name: str):
         """기업 데이터 조회"""
         try:
-            company_data = self.collection.find_one({"name": company_name})
+            collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
+            company_data = collection.find_one({"name": company_name})
             if not company_data:
                 raise HTTPException(status_code=404, detail=f"기업을 찾을 수 없습니다: {company_name}")
             return company_data
@@ -29,8 +33,13 @@ class CompanyService:
     async def get_all_company_names(self):
         """모든 기업 이름 조회"""
         try:
-            companies = self.collection.find({}, {"name": 1})
-            return [company["name"] for company in companies]
+            collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
+            companies = collection.find({}, {"name": 1})
+            company_names = []
+            for company in companies:
+                if "name" in company and company["name"]:
+                    company_names.append(company["name"])
+            return company_names
         except Exception as e:
             logger.error(f"기업 목록 조회 실패: {str(e)}")
             raise HTTPException(status_code=503, detail="기업 목록 조회 실패")
@@ -38,7 +47,8 @@ class CompanyService:
     async def get_company_metrics(self, company_name: str):
         """기업 지표 조회"""
         try:
-            metrics = self.collection.find_one(
+            collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
+            metrics = collection.find_one(
                 {"name": company_name},
                 {"metrics": 1}
             )
@@ -52,7 +62,8 @@ class CompanyService:
     async def get_sales_data(self, company_name: str):
         """매출 데이터 조회"""
         try:
-            sales_data = self.collection.find_one(
+            collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
+            sales_data = collection.find_one(
                 {"name": company_name},
                 {"sales": 1}
             )
@@ -66,7 +77,8 @@ class CompanyService:
     async def get_treasure_data(self):
         """보물찾기 데이터 조회"""
         try:
-            treasure_data = self.collection.find({}, {"name": 1, "treasure": 1})
+            collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
+            treasure_data = collection.find({}, {"name": 1, "treasure": 1})
             return list(treasure_data)
         except Exception as e:
             logger.error(f"보물찾기 데이터 조회 실패: {str(e)}")
