@@ -6,8 +6,9 @@ from typing import Any, Dict
 import logging
 import sys
 import os
+import inspect
 
-# 프로젝트 루트를 Python 경로에 추가
+# 프로젝트 루트를 Python 경로에 추가 (기존 코드 유지)
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.stock_service import StockService
@@ -27,6 +28,16 @@ stock_service = StockService()
 def _ok(data: Any) -> Dict[str, Any]:
     return {"data": data}
 
+async def _resolve(value_or_awaitable: Any) -> Any:
+    """
+    서비스 레이어가 동기(def)든 비동기(async def)든 모두 처리.
+    - 코루틴/awaitable이면 await
+    - 일반 값(리스트/딕셔너리 등)이면 그대로 반환
+    """
+    if inspect.isawaitable(value_or_awaitable):
+        return await value_or_awaitable
+    return value_or_awaitable
+
 # -------------------------
 # 엔드포인트
 # -------------------------
@@ -43,7 +54,7 @@ async def get_stock_price(
     항상 {"data": ...} 형태로 응답합니다.
     """
     try:
-        data = await stock_service.get_stock_price(ticker)
+        data = await _resolve(stock_service.get_stock_price(ticker))
         return _ok(data)
     except HTTPException:
         raise
@@ -64,7 +75,7 @@ async def get_kospi_index() -> Dict[str, Any]:
     소스 체인(pykrx → FDR → yfinance → 정적 폴백)은 서비스 레이어에서 처리.
     """
     try:
-        data = await stock_service.get_kospi_data()
+        data = await _resolve(stock_service.get_kospi_data())
         return _ok(data)
     except HTTPException:
         raise
@@ -83,7 +94,7 @@ async def get_market_cap_top10() -> Dict[str, Any]:
     시가총액 상위 10개 기업 목록을 반환합니다.
     """
     try:
-        data = await stock_service.get_market_cap_top10()
+        data = await _resolve(stock_service.get_market_cap_top10())
         return _ok(data)
     except HTTPException:
         raise
@@ -102,7 +113,7 @@ async def get_top_volume() -> Dict[str, Any]:
     거래량 상위 5개 기업 목록을 반환합니다.
     """
     try:
-        data = await stock_service.get_top_volume()
+        data = await _resolve(stock_service.get_top_volume())
         return _ok(data)
     except HTTPException:
         raise
@@ -125,7 +136,7 @@ async def get_industry_analysis(
     필요 시 limit 같은 파라미터를 서비스 레이어로 전달하세요.
     """
     try:
-        data = await stock_service.get_industry_analysis(name=name, limit=limit)
+        data = await _resolve(stock_service.get_industry_analysis(name=name, limit=limit))
         return _ok(data)
     except HTTPException:
         raise
