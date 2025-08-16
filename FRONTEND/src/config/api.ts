@@ -1,13 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
-const isBrowser = typeof window !== 'undefined';
-
-// 브라우저: 반드시 리라이트 타게 함 → 상대 경로 고정
-// 서버(SSR)에서만 절대 URL 허용(필요할 때). 서버용 env는 NEXT_PUBLIC 금지.
-const API_BASE_URL =
-  isBrowser
-    ? '/api/v1'
-    : (process.env.API_BASE_URL?.replace(/\/$/, '') || 'http://127.0.0.1:7000') + '/api/v1';
+// 브라우저에서는 무조건 상대 경로 사용 (환경변수 무시)
+const API_BASE_URL = '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -24,6 +18,12 @@ api.defaults.headers.delete['Content-Type']= 'application/json';
 api.interceptors.request.use((config) => {
   config.headers = config.headers || {};
   (config.headers as any)['X-Requested-With'] = 'XMLHttpRequest';
+  
+  // 디버깅: 요청 URL 로깅
+  const baseURL = config.baseURL || '';
+  const url = config.url || '';
+  console.log('[api] 요청 URL:', baseURL + url);
+  
   return config;
 });
 
@@ -58,9 +58,10 @@ export const API_ENDPOINTS = {
 };
 
 // 디버깅 로그
-console.log('[api] API_BASE_URL:', API_BASE_URL);
-console.log('[api] isBrowser:', isBrowser);
+console.log('[api] API_BASE_URL (강제 설정):', API_BASE_URL);
 console.log('[api] API 객체 생성됨:', api);
+console.log('[api] API 객체 타입:', typeof api);
+console.log('[api] API 객체의 get 메서드:', api.get);
 console.log('[api] API_ENDPOINTS 생성됨:', API_ENDPOINTS);
 
 export default api;
