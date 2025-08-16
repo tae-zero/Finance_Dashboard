@@ -2,9 +2,12 @@ from fastapi import HTTPException
 import asyncio
 import logging
 import warnings
+import datetime as dt
+import time
 from datetime import datetime, timedelta
-from typing import List, Dict
+from typing import List, Dict, Optional
 import json
+from requests.exceptions import JSONDecodeError as ReqJSONDecodeError, RequestException
 
 # pykrx 내부 로깅 완전 차단
 logging.getLogger("pykrx").setLevel(logging.ERROR)
@@ -15,6 +18,53 @@ logging.getLogger("requests").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore")
 
 logger = logging.getLogger("investor_service")
+
+def _get_market_trading_value_by_investor_safe(
+    start: str, end: str, market: str = "KOSPI", max_back: int = 6
+):
+    """
+    pykrx 투자자 매매대금 조회 안전 래퍼.
+    - 휴장일/주말이면 최대 max_back일 전까지 하루씩 뒤로 당겨가며 조회
+    - 호출 구간만 로그 레벨 WARNING으로 올려 pykrx 내부 로깅 포맷 버그 억제
+    - JSONDecodeError / 빈 DF 방어
+    """
+    root = logging.getLogger()
+    prev_level = root.level
+    try:
+        root.setLevel(logging.WARNING)  # pykrx 내부 logging.info 포맷 에러 억제
+
+        s = dt.datetime.strptime(start, "%Y%m%d").date()
+        e = dt.datetime.strptime(end, "%Y%m%d").date()
+
+        for back in range(max_back + 1):
+            try:
+                from pykrx import stock
+                df = stock.get_market_trading_value_by_investor(
+                    fromdate=s.strftime("%Y%m%d"),
+                    todate=e.strftime("%Y%m%d"),
+                    market=market,
+                )
+                # 정상 데이터 확인
+                if df is not None and not df.empty:
+                    # 컬럼 공백 제거 등 정리
+                    df.columns = [str(c).strip() for c in df.columns]
+                    logger.info(f"pykrx 투자자 데이터 조회 성공: {s}~{e}")
+                    return df
+
+                raise ValueError("empty dataframe")
+            except (ReqJSONDecodeError, RequestException, ValueError) as ex:
+                logger.warning(
+                    "pykrx 투자자 데이터 실패(%s~%s, %s) 재시도 %d/%d: %s",
+                    s, e, market, back + 1, max_back + 1, ex
+                )
+                # 직전 영업일로 한 칸씩 후퇴
+                s = s - dt.timedelta(days=1)
+                e = e - dt.timedelta(days=1)
+                time.sleep(0.6 * (back + 1))
+
+        return None
+    finally:
+        root.setLevel(prev_level)
 
 class InvestorService:
     def __init__(self):
@@ -28,60 +78,71 @@ class InvestorService:
         """코스피 투자자별 매수/매도량 분석 (구현)"""
         try:
             def _fetch_investor_data():
-                try:
-                    # pykrx import를 함수 내부로 이동하여 오류 발생 시점 제어
-                    from pykrx import stock
-                    
-                    today = datetime.today().strftime("%Y%m%d")
-                    yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
-                    
-                    # 투자자별 거래량 데이터 조회 (포지셔널 인자 사용)
-                    df = stock.get_market_trading_value_by_investor(
-                        yesterday,  # fromdate
-                        today,      # todate
-                        "KOSPI"     # market (포지셔널)
-                    )
-                    
-                    if df is None or df.empty:
-                        logger.warning("투자자 데이터가 비어있습니다")
-                        return {"error": "투자자 데이터가 없습니다"}
-                    
-                    # 데이터 정리 - 안전한 컬럼 접근
-                    result = []
-                    for date in df.index:
-                        try:
-                            # pykrx가 반환하는 모든 가능한 컬럼을 안전하게 처리
-                            daily_data = {
-                                "date": date.strftime("%Y-%m-%d") if hasattr(date, 'strftime') else str(date),
-                                "individual": int(df.loc[date, "개인"]) if "개인" in df.columns else 0,
-                                "foreign": int(df.loc[date, "외국인"]) if "외국인" in df.columns else 0,
-                                "institution": int(df.loc[date, "기관"]) if "기관" in df.columns else 0,
-                                "financial": int(df.loc[date, "금융투자"]) if "금융투자" in df.columns else 0,
-                                "insurance": int(df.loc[date, "보험"]) if "보험" in df.columns else 0,
-                                "investment": int(df.loc[date, "투신"]) if "투신" in df.columns else 0,
-                                "bank": int(df.loc[date, "은행"]) if "은행" in df.columns else 0,
-                                "pension": int(df.loc[date, "연기금"]) if "연기금" in df.columns else 0,
-                                "other": int(df.loc[date, "기타법인"]) if "기타법인" in df.columns else 0
-                                # 추가 컬럼들도 안전하게 처리
-
-                            }
-                            result.append(daily_data)
-                        except Exception as e:
-                            logger.warning(f"일일 데이터 파싱 실패: {e}")
-                            continue
-                    
-                    if not result:
-                        return {"error": "파싱된 투자자 데이터가 없습니다"}
-                    
-                    logger.info("pykrx로 투자자 데이터 조회 성공")
-                    return {"투자자별_거래량": result}
-                    
-                except Exception as e:
-                    logger.error(f"pykrx 투자자 데이터 조회 실패: {e}")
-                    # 폴백: 정적 데이터 반환
+                today = datetime.today().strftime("%Y%m%d")
+                yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y%m%d")
+                
+                # 안전 래퍼 사용
+                df = _get_market_trading_value_by_investor_safe(
+                    start=yesterday,
+                    end=today,
+                    market="KOSPI",
+                    max_back=6
+                )
+                
+                if df is None:
+                    logger.warning("pykrx 투자자 데이터 조회 실패: 휴장/네트워크/응답 이상")
                     return self._get_static_investor_data()
+                
+                # '거래대금' 컬럼 보정
+                if "거래대금" not in df.columns:
+                    # 가끔 스키마가 달라지는 경우(예: '거래대금 합계', '매수거래대금' 등) 대비
+                    cand = next((c for c in df.columns if "거래대금" in c or "대금" in c), None)
+                    if cand:
+                        df = df.rename(columns={cand: "거래대금"})
+                        logger.info(f"컬럼명 보정: {cand} → 거래대금")
+                    else:
+                        logger.error("컬럼 스키마 변경 감지: %s", df.columns.tolist())
+                        return self._get_static_investor_data()
+                
+                # 데이터 정리 - 안전한 컬럼 접근
+                result = []
+                for date in df.index:
+                    try:
+                        # pykrx가 반환하는 모든 가능한 컬럼을 안전하게 처리
+                        daily_data = {
+                            "date": date.strftime("%Y-%m-%d") if hasattr(date, 'strftime') else str(date),
+                            "individual": int(df.loc[date, "개인"]) if "개인" in df.columns else 0,
+                            "foreign": int(df.loc[date, "외국인"]) if "외국인" in df.columns else 0,
+                            "institution": int(df.loc[date, "기관"]) if "기관" in df.columns else 0,
+                            "financial": int(df.loc[date, "금융투자"]) if "금융투자" in df.columns else 0,
+                            "insurance": int(df.loc[date, "보험"]) if "보험" in df.columns else 0,
+                            "investment": int(df.loc[date, "투신"]) if "투신" in df.columns else 0,
+                            "bank": int(df.loc[date, "은행"]) if "은행" in df.columns else 0,
+                            "pension": int(df.loc[date, "연기금"]) if "연기금" in df.columns else 0,
+                            "other": int(df.loc[date, "기타법인"]) if "기타법인" in df.columns else 0
+                            # 추가 컬럼들도 안전하게 처리
+                        }
+                        result.append(daily_data)
+                    except Exception as e:
+                        logger.warning(f"일일 데이터 파싱 실패: {e}")
+                        continue
+                
+                if not result:
+                    logger.warning("파싱된 투자자 데이터가 없습니다")
+                    return self._get_static_investor_data()
+                
+                logger.info("pykrx로 투자자 데이터 조회 성공")
+                return {"투자자별_거래량": result}
             
-            return await asyncio.to_thread(_fetch_investor_data)
+            # pykrx 오류가 상위로 전파되지 않도록 완전히 차단
+            result = await asyncio.to_thread(_fetch_investor_data)
+            
+            # 항상 정상적인 응답 반환
+            if "error" in result:
+                logger.warning("pykrx 실패로 정적 데이터 사용")
+                return self._get_static_investor_data()
+            
+            return result
             
         except Exception as e:
             logger.error(f"❌ 투자자 데이터 조회 실패: {str(e)}")
