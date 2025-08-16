@@ -60,30 +60,17 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def cors_debug_middleware(request: Request, call_next):
-        # 로그 레벨을 debug로 낮춤
-        req_details = await log_request_details(request)
-        logger.debug(f"➡️ 수신된 요청 상세 정보: {json.dumps(req_details, indent=2, ensure_ascii=False)}")
-
+        # 로그 레벨을 최소화하여 Railway 제한 방지
         origin = request.headers.get("origin")
-        if origin:
-            logger.debug(f"🌐 요청 Origin: {origin}")
-            if origin not in ALLOWED_ORIGINS:
-                logger.warning(f"⚠️ 허용되지 않은 Origin: {origin}")
-        else:
-            logger.debug("❓ Origin 헤더 없음")
-
-        if request.method == "OPTIONS":
-            logger.debug("🔍 Preflight 요청 감지")
+        
+        # CORS 검사만 수행하고 로그는 최소화
+        if origin and origin not in ALLOWED_ORIGINS:
+            logger.warning(f"⚠️ 허용되지 않은 Origin: {origin}")
 
         try:
             response = await call_next(request)
             
-            # 로그 레벨을 debug로 낮춤
-            cors_headers = {k: v for k, v in response.headers.items() if k.lower().startswith('access-control')}
-            logger.debug(f"📤 응답 CORS 헤더: {json.dumps(cors_headers, indent=2)}")
-            logger.debug(f"📊 응답 상태 코드: {response.status_code}")
-            
-            # CORS 헤더는 유지하되 로그는 최소화
+            # CORS 헤더 설정 (로그 없이)
             response.headers["Access-Control-Allow-Origin"] = origin if origin and origin in ALLOWED_ORIGINS else "*"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
             response.headers["Access-Control-Allow-Headers"] = "*"
@@ -94,7 +81,6 @@ def create_app() -> FastAPI:
 
         except Exception as e:
             logger.error(f"❌ 요청 처리 중 오류 발생: {str(e)}")
-            logger.error(traceback.format_exc())
             return JSONResponse(
                 status_code=500,
                 content={"detail": str(e)},
@@ -143,7 +129,7 @@ def create_app() -> FastAPI:
         error_msg = str(exc)
         logger.error(f"❌ 전역 에러: {error_msg}")
         logger.error(traceback.format_exc())
-        logger.error(f"에러 발생 요청 정보: {log_request_details(request)}")
+        logger.error(f"에러 발생 요청 정보: {log_request_details(request)}")  # await 제거
         
         return JSONResponse(
             status_code=500,
