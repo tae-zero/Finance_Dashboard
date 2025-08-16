@@ -11,72 +11,43 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import asyncio
 from functools import wraps
+import aiohttp
+import json
 
 logger = logging.getLogger("selenium_utils")
-
-def circuit_breaker(max_failures: int = 3, reset_time: int = 60):
-    """회로 차단기 데코레이터"""
-    def decorator(func):
-        failures = 0
-        last_failure_time = 0
-
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            nonlocal failures, last_failure_time
-            
-            if time.time() - last_failure_time > reset_time:
-                failures = 0
-
-            if failures >= max_failures:
-                if time.time() - last_failure_time <= reset_time:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요."
-                    )
-                failures = 0
-
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                failures += 1
-                last_failure_time = time.time()
-                raise e
-
-        return wrapper
-    return decorator
 
 class SeleniumManager:
     def __init__(self):
         self.driver = None
         self._cache = {}
         self.CACHE_DURATION = 600  # 10분
-
-    def _get_cached_data(self, key: str) -> Optional[Dict]:
-        """캐시된 데이터 조회"""
-        if key in self._cache:
-            timestamp, data = self._cache[key]
-            if time.time() - timestamp < self.CACHE_DURATION:
-                return data
-        return None
-
-    def _set_cached_data(self, key: str, data: Dict):
-        """데이터 캐시에 저장"""
-        self._cache[key] = (time.time(), data)
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
 
     async def create_driver(self) -> webdriver.Chrome:
         """Chrome WebDriver 생성"""
         try:
             def _create():
                 options = Options()
-                options.add_argument('--headless')
+                options.add_argument('--headless=new')
                 options.add_argument('--no-sandbox')
                 options.add_argument('--disable-dev-shm-usage')
                 options.add_argument('--disable-gpu')
                 options.add_argument('--window-size=1920,1080')
-                options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+                options.add_argument(f'user-agent={self.headers["User-Agent"]}')
+                options.add_argument('--disable-blink-features=AutomationControlled')
+                options.add_argument('--disable-extensions')
+                options.add_argument('--disable-infobars')
+                options.add_argument('--ignore-certificate-errors')
+                options.add_argument('--disable-popup-blocking')
+                
+                # Railway 환경에서는 Chromium 사용
+                if os.getenv("RAILWAY_ENVIRONMENT"):
+                    options.binary_location = "/usr/bin/chromium-browser"
                 
                 driver = webdriver.Chrome(options=options)
-                driver.set_page_load_timeout(20)
+                driver.set_page_load_timeout(30)
                 return driver
 
             return await asyncio.to_thread(_create)
@@ -115,7 +86,35 @@ class SeleniumManager:
                 await asyncio.sleep(2 ** attempt)
         return False
 
-    @circuit_breaker(max_failures=3, reset_time=60)
+    async def scrape_news_with_requests(self, url: str) -> List[Dict]:
+        """requests를 사용한 뉴스 스크래핑 (대체 방법)"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=self.headers) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        # BeautifulSoup으로 파싱
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(html, 'html.parser')
+                        
+                        news_items = []
+                        # 네이버 금융 뉴스 파싱 로직
+                        for item in soup.select('.news_list a'):
+                            title = item.text.strip()
+                            link = item.get('href', '')
+                            if title and link:
+                                news_items.append({
+                                    "title": title,
+                                    "link": link if link.startswith('http') else f"https://finance.naver.com{link}",
+                                    "date": datetime.now().strftime("%Y-%m-%d")
+                                })
+                        return news_items
+                    else:
+                        raise HTTPException(status_code=response.status, detail="뉴스 데이터 조회 실패")
+        except Exception as e:
+            logger.error(f"뉴스 스크래핑 실패 (requests): {str(e)}")
+            raise HTTPException(status_code=503, detail=str(e))
+
     async def scrape_news(self, url: str, selector: str, max_items: int = 10) -> List[Dict]:
         """뉴스 데이터 스크래핑"""
         cache_key = f"news_{url}_{selector}"
@@ -124,6 +123,16 @@ class SeleniumManager:
             return cached_data
 
         try:
+            # 먼저 requests로 시도
+            try:
+                news_data = await self.scrape_news_with_requests(url)
+                if news_data:
+                    self._set_cached_data(cache_key, news_data)
+                    return news_data
+            except Exception as e:
+                logger.warning(f"Requests 스크래핑 실패, Selenium으로 전환: {str(e)}")
+
+            # Selenium으로 시도
             if not await self.safe_get(url):
                 raise HTTPException(status_code=503, detail="페이지 로딩 실패")
 
@@ -163,14 +172,21 @@ class SeleniumManager:
             raise
         except Exception as e:
             logger.error(f"뉴스 스크래핑 실패 ({url}): {str(e)}")
-            # 마지막 성공 데이터 반환 시도
-            last_data = self._get_cached_data(cache_key)
-            if last_data:
-                logger.info(f"캐시된 마지막 뉴스 데이터 반환 ({url})")
-                return last_data
             raise HTTPException(status_code=503, detail=f"뉴스 데이터 수집 실패: {str(e)}")
         finally:
             await self.quit_driver()
+
+    def _get_cached_data(self, key: str) -> Optional[Dict]:
+        """캐시된 데이터 조회"""
+        if key in self._cache:
+            timestamp, data = self._cache[key]
+            if time.time() - timestamp < self.CACHE_DURATION:
+                return data
+        return None
+
+    def _set_cached_data(self, key: str, data: Dict):
+        """데이터 캐시에 저장"""
+        self._cache[key] = (time.time(), data)
 
     async def __aenter__(self):
         """비동기 컨텍스트 매니저 진입"""
