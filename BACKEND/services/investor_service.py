@@ -50,6 +50,7 @@ class InvestorService:
                     result = []
                     for date in df.index:
                         try:
+                            # pykrx가 반환하는 모든 가능한 컬럼을 안전하게 처리
                             daily_data = {
                                 "date": date.strftime("%Y-%m-%d") if hasattr(date, 'strftime') else str(date),
                                 "individual": int(df.loc[date, "개인"]) if "개인" in df.columns else 0,
@@ -61,6 +62,8 @@ class InvestorService:
                                 "bank": int(df.loc[date, "은행"]) if "은행" in df.columns else 0,
                                 "pension": int(df.loc[date, "연기금"]) if "연기금" in df.columns else 0,
                                 "other": int(df.loc[date, "기타법인"]) if "기타법인" in df.columns else 0
+                                # 추가 컬럼들도 안전하게 처리
+
                             }
                             result.append(daily_data)
                         except Exception as e:
