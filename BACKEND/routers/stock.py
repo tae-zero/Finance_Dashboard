@@ -1,16 +1,18 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict, List
 import logging
-from utils.data_processor import data_processor
+from services.stock_service import StockService
 
 logger = logging.getLogger("stock_router")
 router = APIRouter(prefix="/stock")
+
+stock_service = StockService()
 
 @router.get("/price/{ticker}")
 async def get_stock_price(ticker: str) -> Dict:
     """주식 가격 데이터 조회"""
     try:
-        return await data_processor.get_stock_data(ticker)
+        return await stock_service.get_stock_price(ticker)
     except HTTPException:
         raise
     except Exception as e:
@@ -21,7 +23,7 @@ async def get_stock_price(ticker: str) -> Dict:
 async def get_kospi_index() -> Dict:
     """코스피 지수 데이터 조회"""
     try:
-        return await data_processor.get_kospi_data()
+        return await stock_service.get_kospi_data()
     except HTTPException:
         raise
     except Exception as e:
@@ -32,7 +34,7 @@ async def get_kospi_index() -> Dict:
 async def get_market_cap_top10() -> List[Dict]:
     """시가총액 상위 10개 기업 조회"""
     try:
-        return await data_processor.get_market_cap_data()
+        return await stock_service.get_market_cap_top10()
     except HTTPException:
         raise
     except Exception as e:
@@ -43,7 +45,7 @@ async def get_market_cap_top10() -> List[Dict]:
 async def get_top_volume() -> List[Dict]:
     """거래량 상위 5개 기업 조회"""
     try:
-        return await data_processor.get_volume_data()
+        return await stock_service.get_top_volume()
     except HTTPException:
         raise
     except Exception as e:
@@ -54,7 +56,7 @@ async def get_top_volume() -> List[Dict]:
 async def get_industry_analysis(name: str) -> Dict:
     """산업별 분석 데이터 조회"""
     try:
-        return await data_processor.get_industry_data(name)
+        return await stock_service.get_industry_analysis(name)
     except HTTPException:
         raise
     except Exception as e:
