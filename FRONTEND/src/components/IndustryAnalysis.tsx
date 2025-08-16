@@ -261,11 +261,11 @@ function IndustryAnalysis() {
         <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
           <div className="p-8">
             {/* 산업 요약 - 모든 산업에 표시 */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 mb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-                <span className="text-2xl">💡</span>
-                산업 요약
-              </h2>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 mb-8">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4 flex items-center gap-3">
+                  <span className="text-2xl">💡</span>
+                  산업 요약
+                </h2>
               <div className="text-gray-700 leading-relaxed text-lg">
                 {analysis?.analysis?.요약 ? (
                   typeof analysis.analysis.요약 === 'string' ? (
@@ -398,12 +398,12 @@ function IndustryAnalysis() {
                     }}
                   />
                 ) : (
-                  <div className="text-center py-12 text-gray-500">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-                    차트 데이터를 불러오는 중입니다...
-                  </div>
+                <div className="text-center py-12 text-gray-500">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+                  차트 데이터를 불러오는 중입니다...
+                </div>
                 )}
-              </div>
+        </div>
       </div>
 
             {/* 동종 산업 내 기업 비교하기 */}
@@ -520,7 +520,7 @@ function IndustryAnalysis() {
                   ))}
                 </div>
               )}
-            </div>
+             </div>
 
 
         </div>
