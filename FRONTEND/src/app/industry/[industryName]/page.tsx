@@ -1,11 +1,15 @@
 'use client'
 
-import { useParams } from 'next/navigation';
 import IndustryAnalysis from '@/components/IndustryAnalysis';
 
-export default function IndustryPage() {
-  const params = useParams();
-  const industryName = params.industryName as string;
+type PageProps = {
+  params: {
+    industryName: string;
+  };
+};
+
+export default function Page({ params }: PageProps) {
+  const { industryName } = params;
 
   return (
     <div className="min-h-screen bg-gray-50">

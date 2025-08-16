@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -13,7 +12,6 @@ import {
   Legend
 } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, ChartDataLabels);
 
@@ -101,46 +99,43 @@ function generateIndustrySummary(industry: string, analysis: any): string {
   }
   
   if (analysis["산업 체크포인트"]) {
-    summary += `✅ 핵심 체크포인트:\n`;
-    analysis["산업 체크포인트"].forEach((checkpoint: any) => {
-      summary += `• ${checkpoint.항목}: ${checkpoint.설명}\n`;
+    summary += `✅ 산업 체크포인트:\n`;
+    analysis["산업 체크포인트"].forEach((item: any, index: number) => {
+      summary += `${index + 1}. ${item.항목}: ${item.설명}\n`;
     });
   }
-
+  
   return summary;
 }
 
-function IndustryAnalysis() {
-  const params = useParams();
-  const searchParams = useSearchParams();
-  const industry = decodeURIComponent(params?.industryName as string || '');
-  const initialCompany = searchParams.get("company");
+type IndustryAnalysisProps = {
+  industryName: string;
+};
 
-  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
-  const [allData, setAllData] = useState<{ [key: string]: IndustryData } | null>(null);
-  const [companyMetrics, setCompanyMetrics] = useState<{ [key: string]: any } | null>(null);
-  const [selectedMetric, setSelectedMetric] = useState("PER");
+const IndustryAnalysis: React.FC<IndustryAnalysisProps> = ({ industryName }) => {
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [industryMetrics, setIndustryMetrics] = useState<any>(null);
+  const [companyMetrics, setCompanyMetrics] = useState<any>(null);
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
   const [companyList, setCompanyList] = useState<string[]>([]);
-  const [selectedCompanyLeft, setSelectedCompanyLeft] = useState(initialCompany || "");
-  const [selectedCompanyRight, setSelectedCompanyRight] = useState("");
-  const [leftMetrics, setLeftMetrics] = useState<CompanyMetrics | null>(null);
-  const [rightMetrics, setRightMetrics] = useState<CompanyMetrics | null>(null);
-  const [industryMetrics, setIndustryMetrics] = useState<IndustryData | null>(null);
+  const [allData, setAllData] = useState<any>(null);
+  const [selectedCompanyLeft, setSelectedCompanyLeft] = useState<string>('');
+  const [selectedCompanyRight, setSelectedCompanyRight] = useState<string>('');
+  const [selectedMetric, setSelectedMetric] = useState<string>("PER");
 
-  console.log("🔍 params:", params);
-  console.log("🔍 industry:", industry);
-  console.log("🔍 initialCompany:", initialCompany);
+  console.log("🔍 industry:", industryName);
+  console.log("🔍 initialCompany:", industryName);
 
   useEffect(() => {
     fetch("/industry_metrics.json")
       .then(res => res.json())
       .then(data => {
-        const companies = data[industry!]?.companies || [];
+        const companies = data[industryName]?.companies || [];
         const sorted = [...companies].sort();
         setCompanyList(sorted);
-        if (!initialCompany && sorted.length > 0) {
+        if (sorted.length > 0) {
           setSelectedCompanyLeft(sorted[0]);
         }
       })
@@ -148,43 +143,43 @@ function IndustryAnalysis() {
         console.error("📛 industry_metrics.json 로드 실패:", err);
         setError(true);
       });
-  }, [industry]);
+  }, [industryName]);
 
   useEffect(() => {
-    if (initialCompany) {
-      setSelectedCompanyLeft(initialCompany);
+    if (industryName) {
+      setSelectedCompanyLeft(industryName);
       setSelectedCompanyRight("");
     } else {
       setSelectedCompanyLeft("");
       setSelectedCompanyRight("");
     }
-  }, [initialCompany]);
+  }, [industryName]);
 
   useEffect(() => {
     fetch("/산업별설명.json")
       .then(res => res.json())
       .then(data => {
-        const industryAnalysis = data.find((item: AnalysisData) => item.industry === industry);
+        const industryAnalysis = data.find((item: AnalysisData) => item.industry === industryName);
         setAnalysis(industryAnalysis || null);
       })
       .catch(err => {
         console.error("📛 산업별설명.json 로드 실패:", err);
         // 오류가 발생해도 계속 진행
       });
-  }, [industry]);
+  }, [industryName]);
 
   useEffect(() => {
     fetch("/industry_metrics.json")
       .then(res => res.json())
       .then(data => {
         setAllData(data);
-        setIndustryMetrics(data[industry!] || null);
+        setIndustryMetrics(data[industryName] || null);
       })
       .catch(err => {
         console.error("📛 industry_metrics.json 로드 실패:", err);
         setError(true);
       });
-  }, [industry]);
+  }, [industryName]);
 
   // 기업별 재무지표 데이터 로드
   useEffect(() => {
@@ -227,7 +222,7 @@ function IndustryAnalysis() {
     };
   };
 
-  const labels = allData ? formatMetricHeaders(allData, industry) : { PBR: 'PBR', PER: 'PER', ROE: 'ROE' };
+  const labels = allData ? formatMetricHeaders(allData, industryName) : { PBR: 'PBR', PER: 'PER', ROE: 'ROE' };
 
   if (error) {
       return (
@@ -250,7 +245,7 @@ function IndustryAnalysis() {
             <span className="text-3xl">🏭</span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4">
-            {industry} 산업 분석
+            {industryName} 산업 분석
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             산업 요약 및 주요 재무 지표 분석
@@ -272,10 +267,10 @@ function IndustryAnalysis() {
                     <p>{analysis.analysis.요약}</p>
                   ) : (
                     <div>
-                      {Object.entries(analysis.analysis.요약).map(([key, value], idx) => (
+                      {Object.entries(analysis.analysis.요약).map(([key, value]: [string, any], idx: number) => (
                         <div key={idx} className="mb-4">
                           <h4 className="font-bold text-gray-800 mb-2">{key}</h4>
-                          <p>{Array.isArray(value) ? value.join(', ') : value}</p>
+                          <p>{Array.isArray(value) ? value.join(', ') : String(value)}</p>
                         </div>
                       ))}
                     </div>
@@ -283,7 +278,7 @@ function IndustryAnalysis() {
                 ) : analysis?.analysis?.개요 ? (
                   <p>{analysis.analysis.개요}</p>
                 ) : (
-                  <p>📊 {industry} 산업에 대한 요약 정보를 불러오는 중입니다...</p>
+                  <p>📊 {industryName} 산업에 대한 요약 정보를 불러오는 중입니다...</p>
                 )}
               </div>
             </div>
@@ -296,17 +291,17 @@ function IndustryAnalysis() {
                   주요 재무 지표 해석
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {Object.entries(analysis.analysis["주요 재무 지표 해석"]).map(([key, value]) => (
+                  {Object.entries(analysis.analysis["주요 재무 지표 해석"]).map(([key, value]: [string, any]) => (
                     <div key={key} className="bg-white rounded-xl p-6 border border-green-200">
                       <h3 className="text-lg font-bold text-gray-800 mb-3">{key}</h3>
                       <div className="space-y-3">
                         <div>
                           <span className="font-semibold text-green-700">산업 평균:</span>
-                          <span className="ml-2 text-gray-700">{value["산업 평균"]}</span>
+                          <span className="ml-2 text-gray-700">{String(value["산업 평균"])}</span>
                         </div>
                         <div>
                           <span className="font-semibold text-green-700">해석:</span>
-                          <p className="mt-1 text-gray-700 text-sm leading-relaxed">{value["해석"]}</p>
+                          <p className="mt-1 text-gray-700 text-sm leading-relaxed">{String(value["해석"])}</p>
                         </div>
                       </div>
                     </div>
@@ -323,7 +318,7 @@ function IndustryAnalysis() {
                   산업 체크포인트
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {analysis.analysis["산업 체크포인트"].map((item, index) => (
+                  {analysis.analysis["산업 체크포인트"].map((item: any, index: number) => (
                     <div key={index} className="bg-white rounded-xl p-6 border border-purple-200">
                       <h3 className="text-lg font-bold text-gray-800 mb-3">{item.항목}</h3>
                       <p className="text-gray-700 text-sm leading-relaxed">{item.설명}</p>
@@ -337,7 +332,7 @@ function IndustryAnalysis() {
             <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl p-6 border border-yellow-100 mb-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
                 <span className="text-2xl">📈</span>
-                코스피 기준 {industry} 업종 주요 재무 지표
+                코스피 기준 {industryName} 업종 주요 재무 지표
               </h2>
               <div className="flex flex-wrap gap-3 mb-6">
                 {metricList.map((metric) => (
@@ -456,9 +451,9 @@ function IndustryAnalysis() {
                             {
                               label: selectedCompanyLeft,
                               data: [
-                                allData?.[industry]?.[selectedCompanyLeft]?.[metric]?.['2022'] || 0,
-                                allData?.[industry]?.[selectedCompanyLeft]?.[metric]?.['2023'] || 0,
-                                allData?.[industry]?.[selectedCompanyLeft]?.[metric]?.['2024'] || 0
+                                allData?.[industryName]?.[selectedCompanyLeft]?.[metric]?.['2022'] || 0,
+                                allData?.[industryName]?.[selectedCompanyLeft]?.[metric]?.['2023'] || 0,
+                                allData?.[industryName]?.[selectedCompanyLeft]?.[metric]?.['2024'] || 0
                               ],
                               borderColor: '#3b82f6',
                               backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -469,9 +464,9 @@ function IndustryAnalysis() {
                             {
                               label: selectedCompanyRight,
                               data: [
-                                allData?.[industry]?.[selectedCompanyRight]?.[metric]?.['2022'] || 0,
-                                allData?.[industry]?.[selectedCompanyRight]?.[metric]?.['2023'] || 0,
-                                allData?.[industry]?.[selectedCompanyRight]?.[metric]?.['2024'] || 0
+                                allData?.[industryName]?.[selectedCompanyRight]?.[metric]?.['2022'] || 0,
+                                allData?.[industryName]?.[selectedCompanyRight]?.[metric]?.['2023'] || 0,
+                                allData?.[industryName]?.[selectedCompanyRight]?.[metric]?.['2024'] || 0
                               ],
                               borderColor: '#10b981',
                               backgroundColor: 'rgba(16, 185, 129, 0.1)',

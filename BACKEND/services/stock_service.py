@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from pykrx import stock
 from fastapi import HTTPException
-from typing import List, Dict
+from typing import List, Dict, Optional
 from utils.data_processor import DataProcessor
 import json
 
@@ -11,27 +11,15 @@ class StockService:
     def __init__(self):
         self.data_processor = DataProcessor()
     
-    def get_stock_price(self, ticker: str, period: str = "3y") -> List[Dict]:
+    def get_stock_price(self, ticker: str) -> Dict:
         """주가 데이터 조회"""
         try:
-            # yfinance로 데이터 받기
-            df = yf.download(ticker, period=period, interval="1d")
-            
-            if df.empty:
-                return {"error": "데이터 없음"}
-            
-            # 필요한 컬럼만 추출 후 인덱스 리셋
-            df = df[['Close']].reset_index()
-            
-            # Date 컬럼을 문자열로 변환
-            df['Date'] = df['Date'].astype(str)
-            
-            # 필요한 컬럼만 JSON friendly로 구성
-            result = [{"Date": row['Date'], "Close": float(row['Close'])} for _, row in df.iterrows()]
-            return result
-            
+            # yfinance를 사용한 주가 데이터 조회
+            stock_data = self.data_processor.get_stock_data(ticker)
+            return stock_data
         except Exception as e:
-            return {"error": str(e)}
+            print(f"❌ 주가 데이터 조회 실패: {e}")
+            return {"error": "데이터 없음"}
     
     def get_kospi_data(self) -> List[Dict]:
         """코스피 지수 데이터 조회"""
@@ -144,3 +132,13 @@ class StockService:
                 
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+    
+    def get_industry_metrics(self) -> Dict:
+        """산업별 지표 조회"""
+        try:
+            with open("industry_metrics.json", "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data
+        except Exception as e:
+            print(f"❌ 산업 지표 조회 실패: {e}")
+            return {}
