@@ -7,15 +7,20 @@ startCommand = "python start.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
 numReplicas = 1
 minReplicas = 1
 maxReplicas = 1
 
 [deploy.envs]
-PYTHON_VERSION = "3.11.7"
+RAILWAY_ENVIRONMENT = "production"
 PORT = "7000"
 HOST = "0.0.0.0"
-RAILWAY_ENVIRONMENT = "production"
+CHROME_BIN = "/usr/bin/google-chrome"
+CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver"
+PYTHONPATH = "/app"
+PYTHONUNBUFFERED = "1"
+PYTHONDONTWRITEBYTECODE = "1"
 CORS_ORIGINS = "https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app,https://finance-dashboard.vercel.app"
 
 [[deploy.services]]
