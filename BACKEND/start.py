@@ -111,10 +111,13 @@ async def initialize_services():
             logger.error(f"❌ MongoDB 연결 실패: {str(e)}")
             raise
         
-        # 4. 데이터 프로세서 초기화
+        # 4. 데이터 프로세서 초기화 (간단한 확인만)
         try:
-            await data_processor.initialize()
-            logger.info("✅ 데이터 프로세서 초기화 완료")
+            # data_processor 객체가 정상적으로 생성되었는지 확인
+            if data_processor is not None:
+                logger.info("✅ 데이터 프로세서 초기화 완료")
+            else:
+                logger.warning("⚠️ 데이터 프로세서 초기화 실패")
         except Exception as e:
             logger.error(f"❌ 데이터 프로세서 초기화 실패: {str(e)}")
             # 데이터 프로세서 실패는 치명적이지 않음

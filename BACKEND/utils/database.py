@@ -10,10 +10,10 @@ class DatabaseManager:
         self.client: Optional[MongoClient] = None
         self.db = None
         self._connected = False
-        self.connect()
+        # 초기화 시 자동 연결 제거
 
-    def connect(self):
-        """MongoDB 연결"""
+    async def connect(self):
+        """MongoDB 연결 (비동기)"""
         try:
             mongodb_uri = os.getenv("MONGODB_URI")
             if not mongodb_uri:
@@ -41,13 +41,13 @@ class DatabaseManager:
     def get_database(self):
         """데이터베이스 객체 반환"""
         if not self.is_connected():
-            self.connect()
+            raise RuntimeError("데이터베이스가 연결되지 않았습니다. connect()를 먼저 호출하세요.")
         return self.db
 
     def get_collection(self, collection_name: str):
         """컬렉션 객체 반환"""
         if not self.is_connected():
-            self.connect()
+            raise RuntimeError("데이터베이스가 연결되지 않았습니다. connect()를 먼저 호출하세요.")
         return self.db[collection_name]
 
     def close(self):
