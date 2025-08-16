@@ -29,15 +29,9 @@ ENV CHROMIUM_PATH=/usr/bin/google-chrome
 # 작업 디렉토리 설정
 WORKDIR /app
 
-# Poetry 설치 (의존성 관리를 위해)
-RUN pip install poetry
-
-# 프로젝트 파일 복사
-COPY pyproject.toml poetry.lock* ./
-
-# Poetry 설정 및 의존성 설치
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+# 의존성 파일 복사 및 설치
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 소스 코드 복사
 COPY . .

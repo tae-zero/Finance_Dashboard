@@ -1,13 +1,12 @@
 [build]
 builder = "nixpacks"
+buildCommand = "poetry install --no-root"
 
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port 7000"
-healthcheckPath = "/"
+startCommand = "poetry run uvicorn main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 
 [deploy.envs]
-PORT = "7000"
-HOST = "0.0.0.0"
-DB_NAME = "project1_db"
+PYTHON_VERSION = "3.11.7"
