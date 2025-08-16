@@ -5,6 +5,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import os
 import logging
 from datetime import datetime
+import traceback
 
 # 로깅 설정
 logging.basicConfig(
@@ -20,85 +21,112 @@ def create_app() -> FastAPI:
         version="1.0.0"
     )
 
-    # 신뢰할 수 있는 호스트 설정 (먼저 추가: 안쪽 미들웨어가 됨)
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["*"]  # 필요 시 도메인으로 좁히세요
-    )
-
     # CORS 설정
-    CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
-    if not CORS_ORIGINS:
-        CORS_ORIGINS = [
-            "https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app",
-            "https://finance-dashboard.vercel.app",
-            "https://finance.taezero.com",
-            "http://localhost:3000",
-            "http://localhost:5173",
-        ]
-
-    # CORS 미들웨어는 마지막(가장 바깥)으로 추가
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=CORS_ORIGINS,
-        # Vercel 프리뷰 등 서브도메인 허용(둘 다 쓰면 origins 우선, regex는 그 외 매칭)
-        allow_origin_regex=r"https://.*\.vercel\.app",
+        allow_origins=["*"],  # 개발 중에는 모든 origin 허용
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
         max_age=3600,
+    )
+
+    # 신뢰할 수 있는 호스트 설정
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*"]  # 개발 중에는 모든 호스트 허용
     )
 
     # 전역 예외 핸들러
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         error_msg = str(exc)
-        logger.error(f"Global error: {error_msg}", exc_info=True)
-
-        # 외부 의존(예: pykrx/yfinance)에서 자주 나는 에러를 503으로 래핑
-        if "JSONDecodeError" in error_msg or "No timezone found" in error_msg:
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "detail": "외부 서비스 일시적 오류",
-                    "error": error_msg,
-                    "timestamp": datetime.now().isoformat()
-                }
-            )
-
+        logger.error(f"Global error: {error_msg}")
+        logger.error(traceback.format_exc())
+        
         return JSONResponse(
             status_code=500,
             content={
-                "detail": "내부 서버 오류",
-                "error": error_msg,
-                "timestamp": datetime.now().isoformat()
+                "detail": "Internal server error",
+                "message": error_msg,
+                "timestamp": datetime.now().isoformat(),
+                "path": str(request.url)
             }
         )
-
-    # 라우터 등록
-    from routers import company, news, stock, investor
-    app.include_router(company.router, prefix="/api/v1")
-    app.include_router(news.router, prefix="/api/v1")
-    app.include_router(stock.router, prefix="/api/v1")
-    app.include_router(investor.router, prefix="/api/v1")
 
     # 메인 페이지 (헬스체크용)
     @app.get("/")
     async def root():
-        return {
-            "message": "Project 1 Backend API",
-            "status": "healthy",
-            "port": os.getenv("PORT", "7000"),
-            "timestamp": datetime.now().isoformat()
-        }
+        try:
+            return {
+                "status": "healthy",
+                "service": "Project 1 Backend API",
+                "version": "1.0.0",
+                "timestamp": datetime.now().isoformat(),
+                "environment": {
+                    "port": os.getenv("PORT", "7000"),
+                    "host": os.getenv("HOST", "0.0.0.0")
+                },
+                "endpoints": {
+                    "health": "/health",
+                    "api_info": "/api/info",
+                    "docs": "/docs",
+                    "redoc": "/redoc"
+                }
+            }
+        except Exception as e:
+            logger.error(f"Root endpoint error: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=str(e))
 
     # 헬스체크 엔드포인트
     @app.get("/health")
     async def health_check():
+        try:
+            # MongoDB 연결 체크
+            from utils.database import db_manager
+            db_status = "connected" if db_manager.is_connected() else "disconnected"
+            
+            return {
+                "status": "healthy",
+                "timestamp": datetime.now().isoformat(),
+                "services": {
+                    "mongodb": db_status,
+                    "api": "running"
+                }
+            }
+        except Exception as e:
+            logger.error(f"Health check error: {str(e)}")
+            logger.error(traceback.format_exc())
+            return {
+                "status": "unhealthy",
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
+
+    # API 정보
+    @app.get("/api/info")
+    async def api_info():
         return {
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat()
+            "name": "Project 1 Backend API",
+            "version": "1.0.0",
+            "description": "기업 정보, 주가 데이터, 투자자 분석을 위한 REST API",
+            "endpoints": {
+                "company": "/api/v1/company/*",
+                "news": "/api/v1/news/*",
+                "stock": "/api/v1/stock/*",
+                "investor": "/api/v1/investor/*"
+            }
         }
+
+    # 라우터 등록
+    from routers import company, news, stock, investor
+    
+    app.include_router(company.router, prefix="/api/v1")
+    app.include_router(news.router, prefix="/api/v1")
+    app.include_router(stock.router, prefix="/api/v1")
+    app.include_router(investor.router, prefix="/api/v1")
 
     return app
 
@@ -108,6 +136,5 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 7000))
     host = os.getenv("HOST", "0.0.0.0")
-
-    logger.info(f"🚀 서버 시작 - 호스트: {host}, 포트: {port}")
+    
     uvicorn.run(app, host=host, port=port, log_level="info")
