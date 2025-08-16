@@ -7,7 +7,6 @@ from requests.exceptions import JSONDecodeError as ReqJSONDecodeError, RequestEx
 
 # 외부 데이터 소스
 from pykrx import stock
-import FinanceDataReader as fdr
 import yfinance as yf
 
 
@@ -35,23 +34,6 @@ def _get_index_ohlcv_safe(ticker: str, start: str, end: str):
         return None
     finally:
         root.setLevel(prev_level)
-
-
-# ---------- FDR ----------
-def _fdr_series(symbol: str, start_date: dt.date, end_date: dt.date) -> Optional[List[Dict]]:
-    try:
-        df = fdr.DataReader(symbol, start_date, end_date)
-        if df is None or df.empty:
-            return None
-        df = df.reset_index()
-        return [
-            {"Date": d.strftime("%Y-%m-%d"), "Close": float(c)}
-            for d, c in zip(df["Date"], df["Close"])
-            if c is not None
-        ]
-    except Exception as e:
-        logger.warning("FDR 실패(%s): %s", symbol, e)
-        return None
 
 
 # ---------- yfinance ----------
@@ -85,7 +67,7 @@ def _yf_series(symbol: str, period: str = "1y", interval: str = "1d") -> Optiona
 def get_kospi_series() -> List[Dict]:
     """
     KOSPI 지수 시계열을 리스트[{"Date", "Close"}]로 반환.
-    소스 체인: pykrx(1001) → FDR(^KS11) → yfinance(^KS11) → 정적 폴백
+    소스 체인: pykrx(1001) → yfinance(^KS11) → 정적 폴백
     """
     today = dt.date.today()
     start_d = today - dt.timedelta(days=365)
@@ -101,11 +83,6 @@ def get_kospi_series() -> List[Dict]:
             for d, c in zip(df["날짜"], df["종가"])
             if c is not None
         ]
-
-    # FDR
-    data = _fdr_series("^KS11", start_d, today)
-    if data:
-        return data
 
     # yfinance
     data = _yf_series("^KS11", period="1y", interval="1d")
