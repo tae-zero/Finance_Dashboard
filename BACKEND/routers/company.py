@@ -67,50 +67,6 @@ async def get_treasure_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"보물찾기 데이터 조회 실패: {str(e)}")
 
-@router.get("/data/financial-metrics")
-async def get_financial_metrics():
-    """기업별 재무지표 JSON 데이터"""
-    try:
-        with open("기업별_재무지표.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="재무지표 파일을 찾을 수 없습니다")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"재무지표 데이터 로드 실패: {str(e)}")
-
-@router.get("/data/industry-metrics")
-async def get_industry_metrics():
-    """산업별 지표 JSON 데이터"""
-    try:
-        with open("industry_metrics.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="산업지표 파일을 찾을 수 없습니다")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"산업지표 데이터 로드 실패: {str(e)}")
-
-@router.get("/data/sales-data")
-async def get_sales_data():
-    """매출비중 차트 데이터 JSON"""
-    try:
-        with open("매출비중_chartjs_데이터.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="매출데이터 파일을 찾을 수 없습니다")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"매출데이터 로드 실패: {str(e)}")
-
-@router.get("/data/shareholder-data")
-async def get_shareholder_data():
-    """지분현황 JSON 데이터"""
-    try:
-        with open("지분현황.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="지분현황 파일을 찾을 수 없습니다")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"지분현황 데이터 로드 실패: {str(e)}")
-
 @router.get("/company/{company_name}")
 async def get_company_info(company_name: str):
     """기업 정보 조회"""
@@ -227,3 +183,48 @@ async def get_analyst_report(company_name: str):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"애널리스트 리포트 크롤링 실패: {str(e)}")
+
+# 추가 API 엔드포인트들
+@router.get("/data/financial-metrics")
+async def get_financial_metrics():
+    """기업별 재무지표 JSON 데이터"""
+    try:
+        with open("기업별_재무지표.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="재무지표 파일을 찾을 수 없습니다")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"재무지표 데이터 로드 실패: {str(e)}")
+
+@router.get("/data/industry-metrics")
+async def get_industry_metrics():
+    """산업별 지표 JSON 데이터"""
+    try:
+        with open("industry_metrics.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="산업지표 파일을 찾을 수 없습니다")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"산업지표 데이터 로드 실패: {str(e)}")
+
+@router.get("/data/sales-data")
+async def get_sales_data():
+    """매출비중 차트 데이터 JSON"""
+    try:
+        with open("매출비중_chartjs_데이터.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="매출데이터 파일을 찾을 수 없습니다")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"매출데이터 로드 실패: {str(e)}")
+
+@router.get("/data/shareholder-data")
+async def get_shareholder_data():
+    """지분현황 JSON 데이터"""
+    try:
+        with open("지분현황.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="지분현황 파일을 찾을 수 없습니다")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"지분현황 데이터 로드 실패: {str(e)}")
