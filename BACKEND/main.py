@@ -149,6 +149,19 @@ def create_app() -> FastAPI:
     app.include_router(stock.router, prefix="/api/v1")
     app.include_router(investor.router, prefix="/api/v1")
 
+    # -------------------------------------------------
+    # 데이터베이스 연결 (startup 이벤트)
+    # -------------------------------------------------
+    @app.on_event("startup")
+    async def startup_event():
+        try:
+            from utils.database import db_manager
+            await db_manager.connect()
+            logger.info("✅ 데이터베이스 연결 완료")
+        except Exception as e:
+            logger.error("❌ 데이터베이스 연결 실패: %s", e)
+            # 연결 실패해도 서버는 시작 (폴백 데이터 사용)
+
     logger.info("✅ 앱 초기화 완료")
     return app
 
