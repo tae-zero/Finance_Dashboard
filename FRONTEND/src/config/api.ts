@@ -59,10 +59,10 @@ export const API_ENDPOINTS = {
   COMPANY_NAMES: '/company/names/all',  // 기업 목록 조회 엔드포인트
   
   // JSON 데이터 엔드포인트들
-  FINANCIAL_METRICS: '/data/financial-metrics',
-  INDUSTRY_METRICS: '/data/industry-metrics',
-  SALES_DATA: '/data/sales-data',
-  SHAREHOLDER_DATA: '/data/shareholder-data',
+  FINANCIAL_METRICS: '/company/data/financial-metrics',
+  INDUSTRY_METRICS: '/company/data/industry-metrics',
+  SALES_DATA: '/company/data/sales-data',
+  SHAREHOLDER_DATA: '/company/data/shareholder-data',
   
   // 대시보드 엔드포인트들
   HOT_NEWS: '/news/hot/kospi',
@@ -74,6 +74,9 @@ export const API_ENDPOINTS = {
   TOP_RANKINGS: '/stock/market-cap-top10',      // 시가총액 TOP 10
   MARKET_CAP_TOP10: '/stock/market-cap-top10',  // 시가총액 TOP 10 (별칭)
   TOP_VOLUME: '/stock/top-volume',              // 거래량 TOP 5
+  
+  // 보물찾기 엔드포인트
+  TREASURE_DATA: '/company/treasure/data',       // 보물찾기 데이터
 };
 
 // 디버깅 로그
