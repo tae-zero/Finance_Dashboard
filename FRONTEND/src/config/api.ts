@@ -48,30 +48,20 @@ api.interceptors.response.use(
 );
 
 export const API_ENDPOINTS = {
+  // 기존 엔드포인트들
   COMPANY: (name: string) => `/company/${encodeURIComponent(name)}`,
-  COMPANY_NAMES: `/company/names/all`,
-  COMPANY_METRICS: (name: string) => `/company/metrics/${encodeURIComponent(name)}`,
-  COMPANY_SALES: (name: string) => `/company/sales/${encodeURIComponent(name)}`,
-  HOT_NEWS: `/news/hot/kospi`,
-  MAIN_NEWS: `/news/earnings`,
-  COMPANY_NEWS: (keyword: string) => `/news/search?keyword=${encodeURIComponent(keyword)}`,
-  ANALYST_REPORT: (code: string) => `/news/analyst/report?code=${code}`,
   STOCK_PRICE: (ticker: string) => `/stock/price/${ticker}`,
-  KOSPI_DATA: `/stock/kospi/index`,
-  MARKET_CAP_TOP10: `/stock/marketcap/top10`,
-  TOP_VOLUME: `/stock/volume/top5`,
-  INDUSTRY_ANALYSIS: (name: string) => `/stock/industry/${encodeURIComponent(name)}`,
-  INVESTOR_VALUE: `/investor/value`,
-  INVESTOR_SUMMARY: (ticker: string) => `/investor/summary/${ticker}`,
-  INVESTOR_TRENDS: (days: number) => `/investor/trends?days=${days}`,
-  TREASURE_DATA: `/company/treasure/data`,
-  TOP_RANKINGS: `/investor/rankings/top5`,
+  INVESTOR_SUMMARY: (code: string) => `/investor/summary/${code}`,
   
-  // JSON 데이터 API 엔드포인트 추가
-  FINANCIAL_METRICS: `/company/data/financial-metrics`,
-  INDUSTRY_METRICS: `/company/data/industry-metrics`,
-  SALES_DATA: `/company/data/sales-data`,
-  SHAREHOLDER_DATA: `/company/data/shareholder-data`,
+  // 새로운 엔드포인트들
+  COMPANY_NEWS: (name: string) => `/company/${encodeURIComponent(name)}/news`,
+  ANALYST_REPORT: (name: string) => `/company/${encodeURIComponent(name)}/analyst-report`,
+  
+  // JSON 데이터 엔드포인트들
+  FINANCIAL_METRICS: '/data/financial-metrics',
+  INDUSTRY_METRICS: '/data/industry-metrics',
+  SALES_DATA: '/data/sales-data',
+  SHAREHOLDER_DATA: '/data/shareholder-data',
 };
 
 // 디버깅 로그

@@ -19,14 +19,69 @@ interface SalesTableProps {
 
 function SalesTable({ name }: SalesTableProps) {
   const [rows, setRows] = useState<SalesRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    api.get(API_ENDPOINTS.COMPANY_SALES(name))
-      .then(res => setRows(res.data))
-      .catch(err => console.error("매출 데이터 오류:", err));
+    const fetchSalesData = async () => {
+      try {
+        setLoading(true);
+        // 백엔드 API를 통해 매출 데이터 가져오기
+        const response = await api.get(API_ENDPOINTS.SALES_DATA);
+        if (response.data && response.data[name]) {
+          setRows(response.data[name]);
+        } else {
+          // 폴백: 정적 파일 시도
+          const staticResponse = await fetch('/매출비중_chartjs_데이터.json');
+          const staticData = await staticResponse.json();
+          if (staticData[name]) {
+            setRows(staticData[name]);
+          } else {
+            setError(true);
+          }
+        }
+      } catch (err) {
+        console.error("매출 데이터 로드 실패:", err);
+        // 폴백: 정적 파일 시도
+        try {
+          const staticResponse = await fetch('/매출비중_chartjs_데이터.json');
+          const staticData = await staticResponse.json();
+          if (staticData[name]) {
+            setRows(staticData[name]);
+          } else {
+            setError(true);
+          }
+        } catch (staticErr) {
+          console.error("정적 파일 폴백 실패:", staticErr);
+          setError(true);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (name) {
+      fetchSalesData();
+    }
   }, [name]);
 
-  if (rows.length === 0) return <p>📉 매출 데이터를 불러오는 중입니다...</p>;
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mx-auto mb-4"></div>
+        <p>📉 매출 데이터를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
+
+  if (error || rows.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <p>📉 매출 데이터를 불러올 수 없습니다.</p>
+        <p className="text-sm">데이터가 준비되지 않았거나 일시적인 오류가 발생했습니다.</p>
+      </div>
+    );
+  }
 
   const tooltipMap: { [key: string]: string } = {
     '내수': '국내에서 발생한 매출이야.',
@@ -57,10 +112,10 @@ function SalesTable({ name }: SalesTableProps) {
 
   return (
     <div>
-      <h3>💰 사업부문별 매출액 (단위: 백만원)</h3>
+      <h3 className="text-xl font-bold text-gray-800 mb-4">💰 사업부문별 매출액 (단위: 백만원)</h3>
       {Object.entries(grouped).map(([groupKey, items], idx) => (
         <div key={idx} style={{ marginBottom: '30px' }}>
-          <h4 style={{ margin: '10px 0' }}>{groupKey}</h4>
+          <h4 style={{ margin: '10px 0', fontSize: '16px', fontWeight: 'bold' }}>{groupKey}</h4>
           <table style={{
             borderCollapse: 'collapse',
             width: '100%',

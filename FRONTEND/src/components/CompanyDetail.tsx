@@ -50,6 +50,7 @@ interface Company {
   업종명: string;
   종목코드: string;
   짧은요약: any;
+  요약: any;
   개요: any;
   지표: any;
 }
@@ -156,11 +157,11 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
         }
         if (newsRes.status === 'fulfilled') {
           console.log("✅ 뉴스 성공:", newsRes.value.data);
-          setNews(newsRes.value.data);
+          setNews(newsRes.value.data.news || newsRes.value.data || []);
         }
         if (reportRes.status === 'fulfilled') {
           console.log("✅ 애널리스트 리포트 성공:", reportRes.value.data);
-          setReport(reportRes.value.data);
+          setReport(reportRes.value.data.reports || reportRes.value.data || []);
         }
         if (investorsRes.status === 'fulfilled') {
           console.log("✅ 투자자 동향 성공:", investorsRes.value.data);
@@ -375,7 +376,10 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
           <div className="p-8">
             {/* 기업 요약 */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 mb-8">
-              <CompanySummary summary={company.짧은요약} outline={company.개요} />
+              <CompanySummary 
+                summary={company.요약 || company.짧은요약 || '요약 정보가 없습니다.'} 
+                outline={company.개요 || {}} 
+              />
             </div>
 
             {/* 기업 개요 */}

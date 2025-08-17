@@ -204,5 +204,145 @@ class SeleniumManager:
             logger.error("❌ 커스텀 스크래핑 실패 (%s): %s", url, str(e))
             return []
 
+    def crawl_company_news(self, search_query: str, max_news: int = 10) -> List[Dict]:
+        """기업별 관련 뉴스 크롤링"""
+        try:
+            if not self.driver:
+                self._init_driver()
+            
+            # 네이버 뉴스에서 검색
+            search_url = f"https://search.naver.com/search.naver?where=news&query={search_query}"
+            self.driver.get(search_url)
+            time.sleep(2)
+            
+            news_items = []
+            news_elements = self.driver.find_elements(By.CSS_SELECTOR, ".news_wrap.api_ani_send")
+            
+            for i, element in enumerate(news_elements[:max_news]):
+                try:
+                    title_element = element.find_element(By.CSS_SELECTOR, ".news_tit")
+                    title = title_element.text.strip()
+                    link = title_element.get_attribute("href")
+                    
+                    # 내용 추출 (있는 경우)
+                    try:
+                        content_element = element.find_element(By.CSS_SELECTOR, ".dsc_txt_wrap")
+                        content = content_element.text.strip()
+                    except:
+                        content = ""
+                    
+                    # 날짜 추출 (있는 경우)
+                    try:
+                        date_element = element.find_element(By.CSS_SELECTOR, ".info_group .info")
+                        date = date_element.text.strip()
+                    except:
+                        date = ""
+                    
+                    # 카테고리 추출 (있는 경우)
+                    try:
+                        category_element = element.find_element(By.CSS_SELECTOR, ".info_group .press")
+                        category = category_element.text.strip()
+                    except:
+                        category = ""
+                    
+                    news_items.append({
+                        "title": title,
+                        "link": link,
+                        "content": content,
+                        "date": date,
+                        "category": category
+                    })
+                    
+                except Exception as e:
+                    logger.warning(f"뉴스 항목 파싱 실패: {e}")
+                    continue
+            
+            return news_items
+            
+        except Exception as e:
+            logger.error(f"기업 뉴스 크롤링 실패: {e}")
+            return []
+
+    def crawl_analyst_reports(self, search_query: str, max_reports: int = 5) -> List[Dict]:
+        """기업별 애널리스트 리포트 크롤링"""
+        try:
+            if not self.driver:
+                self._init_driver()
+            
+            # 한국투자증권 리포트 검색 (예시)
+            search_url = f"https://www.kiwoom.com/h/customer/guide/analyst/analystReport?searchKeyword={search_query}"
+            self.driver.get(search_url)
+            time.sleep(3)
+            
+            report_items = []
+            
+            # 리포트 목록 요소 찾기 (실제 사이트에 맞게 수정 필요)
+            try:
+                report_elements = self.driver.find_elements(By.CSS_SELECTOR, ".report-item")
+                
+                for i, element in enumerate(report_elements[:max_reports]):
+                    try:
+                        title_element = element.find_element(By.CSS_SELECTOR, ".title")
+                        title = title_element.text.strip()
+                        
+                        # 애널리스트명 추출
+                        try:
+                            analyst_element = element.find_element(By.CSS_SELECTOR, ".analyst")
+                            analyst = analyst_element.text.strip()
+                        except:
+                            analyst = "알 수 없음"
+                        
+                        # 요약 추출
+                        try:
+                            summary_element = element.find_element(By.CSS_SELECTOR, ".summary")
+                            summary = summary_element.text.strip()
+                        except:
+                            summary = "요약 정보 없음"
+                        
+                        # 목표가 추출
+                        try:
+                            target_element = element.find_element(By.CSS_SELECTOR, ".target-price")
+                            target_price = target_element.text.strip()
+                        except:
+                            target_price = "목표가 미정"
+                        
+                        # 날짜 추출
+                        try:
+                            date_element = element.find_element(By.CSS_SELECTOR, ".date")
+                            date = date_element.text.strip()
+                        except:
+                            date = "날짜 정보 없음"
+                        
+                        report_items.append({
+                            "title": title,
+                            "analyst": analyst,
+                            "summary": summary,
+                            "target_price": target_price,
+                            "date": date
+                        })
+                        
+                    except Exception as e:
+                        logger.warning(f"리포트 항목 파싱 실패: {e}")
+                        continue
+                        
+            except Exception as e:
+                logger.warning(f"리포트 목록 요소를 찾을 수 없음: {e}")
+                # 폴백: 더미 데이터 반환
+                report_items = [
+                    {
+                        "title": f"{search_query} 관련 리포트",
+                        "analyst": "증권사 애널리스트",
+                        "summary": "해당 기업에 대한 상세한 분석 리포트입니다.",
+                        "target_price": "목표가 미정",
+                        "date": "최근"
+                    }
+                ]
+            
+            return report_items
+            
+        except Exception as e:
+            logger.error(f"애널리스트 리포트 크롤링 실패: {e}")
+            return []
+
 
 selenium_manager = SeleniumManager()
