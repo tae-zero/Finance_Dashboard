@@ -32,23 +32,47 @@ class CompanyService:
             return obj
 
     def get_company_data(self, company_name: str) -> Dict:
-        """기업 데이터 조회"""
+        """기업 데이터 조회 (explain 컬렉션에서 짧은요약, users에서 재무지표)"""
         try:
             logger.info(f"🔍 기업 검색 시작: '{company_name}'")
             
-            # 컬렉션 가져오기 (users에서 재무지표 원본 데이터 가져오기)
-            collection = self._get_collection("users")
-            logger.info(f"📊 컬렉션명: users (재무지표 원본)")
+            # 1) explain 컬렉션에서 짧은요약 가져오기
+            explain_collection = self._get_collection("explain")
+            logger.info(f"📊 explain 컬렉션에서 짧은요약 조회")
             
-            # 기업명으로 검색
-            query = {"기업명": company_name}
-            logger.info(f"🔍 검색 쿼리: {query}")
+            explain_query = {"기업명": company_name}
+            explain_data = explain_collection.find_one(explain_query)
             
-            # 실제 검색 실행
-            company = collection.find_one(query)
+            # 2) users 컬렉션에서 재무지표 가져오기
+            users_collection = self._get_collection("users")
+            logger.info(f"📊 users 컬렉션에서 재무지표 조회")
             
-            if company:
+            users_query = {"기업명": company_name}
+            users_data = users_collection.find_one(users_query)
+            
+            # 3) 데이터 병합
+            if explain_data or users_data:
                 logger.info(f"✅ 기업 데이터 찾음: {company_name}")
+                
+                # 기본 데이터 구조 생성
+                company = {}
+                
+                # explain에서 짧은요약 추가
+                if explain_data:
+                    company.update({
+                        "기업명": explain_data.get("기업명"),
+                        "종목코드": explain_data.get("종목코드"),
+                        "업종명": explain_data.get("업종명"),
+                        "짧은요약": explain_data.get("짧은요약")
+                    })
+                
+                # users에서 재무지표 추가
+                if users_data:
+                    company.update({
+                        "지표": users_data.get("지표", {}),
+                        "개요": users_data.get("개요", {})
+                    })
+                
                 # ObjectId 변환
                 company = self._convert_objectid(company)
                 return company
