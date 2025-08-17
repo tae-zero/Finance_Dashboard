@@ -56,7 +56,7 @@ export const API_ENDPOINTS = {
   // 새로운 엔드포인트들
   COMPANY_NEWS: (name: string) => `/company/${encodeURIComponent(name)}/news`,
   ANALYST_REPORT: (name: string) => `/company/${encodeURIComponent(name)}/analyst-report`,
-  COMPANY_NAMES: '/company/names/all',  // 기업 목록 조회 엔드포인트 추가
+  COMPANY_NAMES: '/company/names/all',  // 기업 목록 조회 엔드포인트
   
   // JSON 데이터 엔드포인트들
   FINANCIAL_METRICS: '/data/financial-metrics',
@@ -69,6 +69,11 @@ export const API_ENDPOINTS = {
   MAIN_NEWS: '/news/earnings',
   KOSPI_DATA: '/stock/price/^KS11',
   INVESTOR_VALUE: '/investor/value',
+  
+  // 랭킹 엔드포인트들
+  TOP_RANKINGS: '/stock/market-cap-top10',      // 시가총액 TOP 10
+  MARKET_CAP_TOP10: '/stock/market-cap-top10',  // 시가총액 TOP 10 (별칭)
+  TOP_VOLUME: '/stock/top-volume',              // 거래량 TOP 5
 };
 
 // 디버깅 로그
