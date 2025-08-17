@@ -1,16 +1,10 @@
-from fastapi import APIRouter, HTTPException, Query
-import sys
-import os
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 import json
-
-# 프로젝트 루트를 Python 경로에 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+import os
+from utils.selenium_utils import SeleniumManager
 from services.company_service import CompanyService
 from typing import List, Dict
-from fastapi.responses import JSONResponse
-import os
-from selenium_utils import SeleniumManager
 
 router = APIRouter(prefix="/company", tags=["기업 정보"])
 
