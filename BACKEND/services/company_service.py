@@ -22,7 +22,7 @@ class CompanyService:
         """기업 데이터 조회"""
         try:
             collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
-            company_data = collection.find_one({"name": company_name})
+            company_data = collection.find_one({"기업명": company_name})
             if not company_data:
                 raise HTTPException(status_code=404, detail=f"기업을 찾을 수 없습니다: {company_name}")
             return company_data
@@ -34,11 +34,11 @@ class CompanyService:
         """모든 기업 이름 조회"""
         try:
             collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
-            companies = collection.find({}, {"name": 1})
+            companies = collection.find({}, {"기업명": 1})
             company_names = []
             for company in companies:
-                if "name" in company and company["name"]:
-                    company_names.append(company["name"])
+                if "기업명" in company and company["기업명"]:
+                    company_names.append(company["기업명"])
             return company_names
         except Exception as e:
             logger.error(f"기업 목록 조회 실패: {str(e)}")
@@ -49,7 +49,7 @@ class CompanyService:
         try:
             collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
             metrics = collection.find_one(
-                {"name": company_name},
+                {"기업명": company_name},
                 {"metrics": 1}
             )
             if not metrics:
@@ -64,7 +64,7 @@ class CompanyService:
         try:
             collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
             sales_data = collection.find_one(
-                {"name": company_name},
+                {"기업명": company_name},
                 {"sales": 1}
             )
             if not sales_data:
@@ -78,7 +78,7 @@ class CompanyService:
         """보물찾기 데이터 조회"""
         try:
             collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
-            treasure_data = collection.find({}, {"name": 1, "treasure": 1})
+            treasure_data = collection.find({}, {"기업명": 1, "treasure": 1})
             return list(treasure_data)
         except Exception as e:
             logger.error(f"보물찾기 데이터 조회 실패: {str(e)}")
