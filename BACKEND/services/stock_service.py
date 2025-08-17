@@ -74,6 +74,9 @@ class StockService:
         개별 종목 가격. 실패/빈결과여도 [] 반환(예외/에러 dict 금지).
         """
         try:
+            # API 요청 제한 방지를 위한 대기
+            time.sleep(1)
+            
             # period 대신 start/end 사용 (더 안정적)
             today = date.today()
             start = today - timedelta(days=365)
@@ -101,6 +104,7 @@ class StockService:
 
             # 1) FinanceDataReader (가장 안정적) - 1회만 시도 후 429면 즉시 폴백
             try:
+                time.sleep(1)  # API 요청 제한 방지
                 import FinanceDataReader as fdr
                 df = fdr.DataReader("KS11", start, end)
                 if df is not None and not df.empty:
@@ -120,6 +124,7 @@ class StockService:
 
             # 2) yfinance (보조 수단) - start~end 사용
             try:
+                time.sleep(1)  # API 요청 제한 방지
                 df = yf.download("^KS11", start=start, end=end, interval="1d", progress=False, threads=False)
                 out = _normalize_yf_close(df)
                 if out:
@@ -156,6 +161,7 @@ class StockService:
         실패 시 빈 리스트로 반환해 프런트가 정상적으로 렌더하도록 함.
         """
         try:
+            time.sleep(1)  # API 요청 제한 방지
             ds = _nearest_business_day_str()
             df = stock.get_market_cap_by_ticker(ds, "KOSPI")
             if df is None or df.empty:
@@ -163,7 +169,14 @@ class StockService:
                 return {"시가총액_TOP10": []}
 
             df = df.reset_index()[["티커", "시가총액", "종가"]]
-            df["기업명"] = df["티커"].apply(lambda x: stock.get_market_ticker_name(x))
+            
+            # 기업명 조회 시 각 요청 사이에 약간의 딜레이
+            기업명_list = []
+            for ticker in df["티커"]:
+                time.sleep(0.1)  # 짧은 대기 시간
+                기업명_list.append(stock.get_market_ticker_name(ticker))
+            df["기업명"] = 기업명_list
+            
             top10 = (
                 df.sort_values(by="시가총액", ascending=False)
                 .head(10)[["기업명", "티커", "시가총액", "종가"]]
@@ -180,6 +193,7 @@ class StockService:
         거래량 TOP5. 휴장일 보정 후 호출. 실패 시 [].
         """
         try:
+            time.sleep(1)  # API 요청 제한 방지
             ds = _nearest_business_day_str()
             df = stock.get_market_ohlcv(ds, "KOSPI")
             if df is None or df.empty:
@@ -188,7 +202,14 @@ class StockService:
 
             top5 = df.sort_values(by="거래량", ascending=False).head(5).copy()
             top5["종목코드"] = top5.index
-            top5["종목명"] = top5["종목코드"].apply(lambda code: stock.get_market_ticker_name(code))
+            
+            # 기업명 조회 시 각 요청 사이에 약간의 딜레이
+            종목명_list = []
+            for code in top5["종목코드"]:
+                time.sleep(0.1)  # 짧은 대기 시간
+                종목명_list.append(stock.get_market_ticker_name(code))
+            top5["종목명"] = 종목명_list
+            
             top5.reset_index(drop=True, inplace=True)
             out = top5[["종목명", "종목코드", "거래량"]].to_dict(orient="records")
             logger.info("pykrx로 거래량 TOP5 조회 성공(%s)", ds)

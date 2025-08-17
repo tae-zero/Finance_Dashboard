@@ -59,66 +59,72 @@ def _pick_real_chromedriver(installed_path: str) -> str:
 
 def build_chrome_options(headless: bool = True) -> Options:
     opts = Options()
+    
+    # Chrome binary 위치 (환경에 맞춰 설정)
+    for path in ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]:
+        if os.path.exists(path):
+            opts.binary_location = path
+            logger.info("✅ Chrome 바이너리: %s", path)
+            break
+    
+    # Headless & 안정성 옵션
     if headless:
         opts.add_argument("--headless=new")  # 최신 headless 모드
-    opts.add_argument("--no-sandbox")
-    opts.add_argument("--disable-dev-shm-usage")
-    opts.add_argument("--disable-gpu")
-    opts.add_argument("--disable-extensions")
+    opts.add_argument("--no-sandbox")  # 컨테이너 환경 필수
+    opts.add_argument("--disable-dev-shm-usage")  # /dev/shm 부족 회피
+    opts.add_argument("--disable-gpu")  # 리눅스 서버 안정성
+    opts.add_argument("--disable-software-rasterizer")
+    opts.add_argument("--disable-features=VizDisplayCompositor")
+    opts.add_argument("--remote-debugging-port=9222")  # 렌더러 연결 안정성
     opts.add_argument("--window-size=1920,1080")
-    opts.add_argument("--remote-debugging-port=9222")
-    opts.add_argument("--lang=ko-KR")
-    opts.add_argument("--disable-setuid-sandbox")  # 추가
-    opts.add_argument("--single-process")  # 추가
-    opts.add_argument("--disable-background-timer-throttling")  # 추가
-    opts.add_argument("--disable-backgrounding-occluded-windows")  # 추가
-    opts.add_argument("--disable-renderer-backgrounding")  # 추가
-    opts.add_argument("--disable-features=TranslateUI")  # 추가
-    opts.add_argument("--disable-ipc-flooding-protection")  # 추가
-    opts.add_argument("--memory-pressure-off")  # 추가
-    opts.add_argument("--max_old_space_size=4096")  # 추가
-    opts.add_argument("--log-level=3")  # 추가
-    opts.add_experimental_option('excludeSwitches', ['enable-logging'])  # 추가
     
-    # Chrome 바이너리 위치 설정
-    chrome_bin = os.getenv("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
-    if os.path.exists(chrome_bin):
-        opts.binary_location = chrome_bin
-        logger.info("✅ Chrome 바이너리: %s", chrome_bin)
-    else:
-        logger.warning("⚠️ Chrome 바이너리 미발견: %s", chrome_bin)
+    # 성능 & 메모리 최적화
+    opts.add_argument("--disable-extensions")
+    opts.add_argument("--disable-setuid-sandbox")
+    opts.add_argument("--single-process")
+    opts.add_argument("--disable-background-timer-throttling")
+    opts.add_argument("--disable-backgrounding-occluded-windows")
+    opts.add_argument("--disable-renderer-backgrounding")
+    opts.add_argument("--disable-features=TranslateUI")
+    opts.add_argument("--disable-ipc-flooding-protection")
+    opts.add_argument("--memory-pressure-off")
+    opts.add_argument("--max_old_space_size=4096")
+    
+    # 로깅 설정
+    opts.add_argument("--log-level=3")
+    opts.add_experimental_option('excludeSwitches', ['enable-logging'])
+    
+    # 한글 & 인코딩
+    opts.add_argument("--lang=ko-KR")
+    opts.add_argument("--no-first-run")
+    opts.add_argument("--no-default-browser-check")
+    
     return opts
 
 
 def create_driver(headless: bool = True) -> webdriver.Chrome:
     """
     안전한 Chrome WebDriver 생성:
-    - webdriver_manager 설치 경로에서 실제 'chromedriver'만 집어 사용
+    - webdriver_manager로 자동 설치
     - 실행 권한 보장
+    - 타임아웃 설정
     """
-    logger.info("====== WebDriver manager ======")
-    installed = ChromeDriverManager().install()
-    logger.info("웹드라이버 설치 경로(원본): %s", installed)
-
-    driver_path = _pick_real_chromedriver(installed)
-    if os.path.basename(driver_path) != "chromedriver":
-        logger.error("❌ 잘못된 드라이버 경로 선택: %s", driver_path)
-    driver_path = _ensure_executable(driver_path)
-    logger.info("✅ 최종 chromedriver 경로: %s", driver_path)
-
-    service = Service(executable_path=driver_path)
-    options = build_chrome_options(headless=headless)
-
     try:
+        # Selenium Manager가 드라이버 자동 설치
+        service = Service()
+        options = build_chrome_options(headless=headless)
+        
+        # WebDriver 생성 및 설정
         driver = webdriver.Chrome(service=service, options=options)
+        driver.set_page_load_timeout(30)  # 페이지 로드 타임아웃
+        driver.implicitly_wait(10)  # 요소 찾기 타임아웃
+        
         logger.info("✅ WebDriver 생성 성공")
         return driver
-    except OSError as e:
-        # 아키텍처 불일치(arm64 vs amd64) 가능성 등
-        logger.error("❌ WebDriver 생성 실패(OSerror): %s", e)
-        raise
+        
     except Exception as e:
-        logger.error("❌ WebDriver 생성 실패: %s", e, exc_info=True)
+        logger.error("❌ WebDriver 생성 실패: %s", str(e))
+        logger.error("상세 에러: %s", traceback.format_exc())
         raise
 
 

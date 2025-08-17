@@ -144,10 +144,10 @@ def create_app() -> FastAPI:
     # 라우터 연결
     # -------------------------------------------------
     from routers import company, news, stock, investor
-    app.include_router(company.router, prefix="/api/v1")
-    app.include_router(news.router, prefix="/api/v1")
-    app.include_router(stock.router, prefix="/api/v1")
-    app.include_router(investor.router, prefix="/api/v1")
+    app.include_router(company.router, prefix="/api/v1/company")
+    app.include_router(news.router, prefix="/api/v1/news")
+    app.include_router(stock.router, prefix="/api/v1/stock")
+    app.include_router(investor.router, prefix="/api/v1/investor")
 
     # -------------------------------------------------
     # 데이터베이스 연결 (startup 이벤트)
