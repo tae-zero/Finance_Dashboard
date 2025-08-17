@@ -67,24 +67,39 @@ def _get_market_trading_value_by_investor_safe(
     - 휴장/주말/네트워크 이슈 시 직전 영업일로 back-off
     - 위치 인자 사용(키워드 market= 금지)
     - 호출 구간 조용히(_quiet_pykrx)
+    - detail=False → detail=True 재시도
+    - 멀티인덱스 처리 및 컬럼 정규화
     """
     s = datetime.strptime(start, "%Y%m%d").date()
     e = datetime.strptime(end, "%Y%m%d").date()
 
     for i in range(max_back + 1):
         try:
+            # 1) detail=False로 먼저 시도
             with _quiet_pykrx():
                 df = stock.get_market_trading_value_by_investor(
                     s.strftime("%Y%m%d"),  # fromdate
                     e.strftime("%Y%m%d"),  # todate
                     market_or_ticker,      # 3번째 위치 인자 (KOSPI/KOSDAQ/ALL 또는 종목코드)
-                    # detail/etf/etn/elw 옵션은 기본값
+                    detail=False
                 )
+            
+            if df is None or df.empty:
+                # 2) detail=True로 재시도
+                with _quiet_pykrx():
+                    df = stock.get_market_trading_value_by_investor(
+                        s.strftime("%Y%m%d"),
+                        e.strftime("%Y%m%d"),
+                        market_or_ticker,
+                        detail=True
+                    )
+            
             if df is not None and not df.empty:
-                # 컬럼 공백/이상치 정리
-                df.columns = [str(c).strip() for c in df.columns]
+                # 멀티인덱스 처리 및 컬럼 정규화
+                df = _normalize_investor_dataframe(df)
                 return df
             raise ValueError("empty dataframe")
+            
         except (ReqJSONDecodeError, RequestException, ValueError) as ex:
             logger.warning(
                 "pykrx 투자자 데이터 실패(%s~%s,%s) 재시도 %d/%d: %s",
@@ -101,6 +116,63 @@ def _get_market_trading_value_by_investor_safe(
         e -= timedelta(days=1)
         time.sleep(0.6 * (i + 1))
     return None
+
+
+def _normalize_investor_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    투자자 데이터프레임 정규화:
+    - 멀티인덱스 처리
+    - 컬럼명 공백 제거, 튜플 평탄화
+    - 순매수 > 거래대금 우선 선택
+    """
+    if df is None or df.empty:
+        return df
+    
+    # 멀티인덱스 처리
+    if isinstance(df.columns, pd.MultiIndex):
+        # level=1에서 순매수 > 거래대금 우선 선택
+        level1_cols = df.columns.get_level_values(1).tolist()
+        
+        # 순매수 컬럼 우선 선택
+        preferred_cols = []
+        for col in level1_cols:
+            if "순매수" in str(col):
+                preferred_cols.append(col)
+        
+        # 순매수가 없으면 거래대금 컬럼 선택
+        if not preferred_cols:
+            for col in level1_cols:
+                if "거래대금" in str(col):
+                    preferred_cols.append(col)
+        
+        # 선호 컬럼이 있으면 해당 컬럼만 선택
+        if preferred_cols:
+            selected_cols = []
+            for col in preferred_cols:
+                for full_col in df.columns:
+                    if full_col[1] == col:
+                        selected_cols.append(full_col)
+            
+            if selected_cols:
+                df = df[selected_cols]
+                # level=1 컬럼명만 사용
+                df.columns = [col[1] for col in df.columns]
+    
+    # 컬럼명 정규화
+    normalized_cols = {}
+    for col in df.columns:
+        col_str = str(col).strip()
+        # 공백 제거, 튜플 평탄화
+        if "|" in col_str:
+            col_str = col_str.split("|")[-1]  # 마지막 부분 사용
+        normalized_cols[col] = col_str
+    
+    df = df.rename(columns=normalized_cols)
+    
+    # 공백 제거
+    df.columns = [str(c).strip() for c in df.columns]
+    
+    return df
 
 
 class InvestorService:
@@ -128,7 +200,7 @@ class InvestorService:
                 )
                 if df is None:
                     logger.warning("pykrx 투자자 데이터 조회 실패: 휴장/네트워크/응답 이상")
-                    return self._get_static_investor_data()
+                    return {"투자자별_거래량": self._get_static_investor_data()}
 
                 # 대표 컬럼들만 안전하게 추출
                 cols = df.columns.tolist()
@@ -157,7 +229,7 @@ class InvestorService:
 
                 if not out:
                     logger.warning("투자자 데이터 파싱 결과 없음 → 폴백")
-                    return self._get_static_investor_data()
+                    return {"투자자별_거래량": self._get_static_investor_data()}
 
                 logger.info("pykrx로 투자자 데이터 조회 성공")
                 return {"투자자별_거래량": out}
@@ -166,39 +238,37 @@ class InvestorService:
 
         except Exception as e:
             logger.error("❌ 투자자 데이터 조회 실패(최상위): %s", e)
-            return self._get_static_investor_data()
+            return {"투자자별_거래량": self._get_static_investor_data()}
 
     def _get_static_investor_data(self):
         today = date.today().strftime("%Y-%m-%d")
         yest = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-        return {
-            "투자자별_거래량": [
-                {
-                    "date": yest,
-                    "individual": 1500000000000,
-                    "foreign": 800000000000,
-                    "institution": 1200000000000,
-                    "financial": 300000000000,
-                    "insurance": 200000000000,
-                    "investment": 150000000000,
-                    "bank": 100000000000,
-                    "pension": 500000000000,
-                    "other": 250000000000,
-                },
-                {
-                    "date": today,
-                    "individual": 1600000000000,
-                    "foreign": 850000000000,
-                    "institution": 1250000000000,
-                    "financial": 320000000000,
-                    "insurance": 210000000000,
-                    "investment": 160000000000,
-                    "bank": 110000000000,
-                    "pension": 520000000000,
-                    "other": 260000000000,
-                },
-            ]
-        }
+        return [
+            {
+                "date": yest,
+                "individual": 1500000000000,
+                "foreign": 800000000000,
+                "institution": 1200000000000,
+                "financial": 300000000000,
+                "insurance": 200000000000,
+                "investment": 150000000000,
+                "bank": 100000000000,
+                "pension": 500000000000,
+                "other": 250000000000,
+            },
+            {
+                "date": today,
+                "individual": 1600000000000,
+                "foreign": 850000000000,
+                "institution": 1250000000000,
+                "financial": 320000000000,
+                "insurance": 210000000000,
+                "investment": 160000000000,
+                "bank": 110000000000,
+                "pension": 520000000000,
+                "other": 260000000000,
+            },
+        ]
 
     async def get_investor_summary(self, ticker: str):
         """
@@ -212,13 +282,25 @@ class InvestorService:
                 )
 
                 try:
+                    # detail=False로 먼저 시도
                     with _quiet_pykrx():
                         df = stock.get_market_trading_value_by_investor(
-                            yesterday, today, ticker  # 3번째 위치 인자에 종목코드
+                            yesterday, today, ticker, detail=False
                         )
+                    
+                    if df is None or df.empty:
+                        # detail=True로 재시도
+                        with _quiet_pykrx():
+                            df = stock.get_market_trading_value_by_investor(
+                                yesterday, today, ticker, detail=True
+                            )
+                    
                     if df is None or df.empty:
                         return {"error": "투자자 요약 데이터가 없습니다"}
 
+                    # 데이터프레임 정규화
+                    df = _normalize_investor_dataframe(df)
+                    
                     latest = df.iloc[-1]
                     res = {
                         "ticker": ticker,
@@ -252,14 +334,30 @@ class InvestorService:
                 end_d = date.today()
                 start_d = end_d - timedelta(days=days)
                 try:
+                    # detail=False로 먼저 시도
                     with _quiet_pykrx():
                         df = stock.get_market_trading_value_by_investor(
                             start_d.strftime("%Y%m%d"),
                             end_d.strftime("%Y%m%d"),
                             "KOSPI",
+                            detail=False
                         )
+                    
+                    if df is None or df.empty:
+                        # detail=True로 재시도
+                        with _quiet_pykrx():
+                            df = stock.get_market_trading_value_by_investor(
+                                start_d.strftime("%Y%m%d"),
+                                end_d.strftime("%Y%m%d"),
+                                "KOSPI",
+                                detail=True
+                            )
+                    
                     if df is None or df.empty:
                         return {"error": "트렌드 데이터가 없습니다"}
+
+                    # 데이터프레임 정규화
+                    df = _normalize_investor_dataframe(df)
 
                     dates = [d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d) for d in df.index]
                     trends = {

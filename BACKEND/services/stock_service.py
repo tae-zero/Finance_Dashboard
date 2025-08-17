@@ -92,11 +92,12 @@ class StockService:
         try:
             today = date.today()
             start = today - timedelta(days=365)
+            end = today + timedelta(days=1)  # 서버 타임존 차이로 하루 여유
 
-            # 1) FinanceDataReader (가장 안정적)
+            # 1) FinanceDataReader (가장 안정적) - 1회만 시도 후 429면 즉시 폴백
             try:
                 import FinanceDataReader as fdr
-                df = fdr.DataReader("KS11", start, today)
+                df = fdr.DataReader("KS11", start, end)
                 if df is not None and not df.empty:
                     df = df.reset_index()
                     out = []
@@ -109,11 +110,12 @@ class StockService:
                         return out
                 logger.warning("FDR로 코스피 데이터가 비어있습니다")
             except Exception as e:
-                logger.warning("FDR 실패(KS11): %s", e)
+                # 429 등 FDR 오류 시 즉시 yfinance로 폴백 (재시도 안함)
+                logger.warning("FDR 실패(KS11) - yfinance로 폴백: %s", e)
 
-            # 2) yfinance (보조 수단)
+            # 2) yfinance (보조 수단) - start~end 사용
             try:
-                df = yf.download("^KS11", period="1y", interval="1d", progress=False, threads=False)
+                df = yf.download("^KS11", start=start, end=end, interval="1d", progress=False, threads=False)
                 out = _normalize_yf_close(df)
                 if out:
                     logger.info("yfinance(^KS11)로 코스피 데이터 조회 성공")
