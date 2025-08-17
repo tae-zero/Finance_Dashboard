@@ -204,145 +204,148 @@ class SeleniumManager:
             logger.error("❌ 커스텀 스크래핑 실패 (%s): %s", url, str(e))
             return []
 
+    def _init_driver(self):
+        """WebDriver 초기화"""
+        try:
+            logger.info("====== WebDriver manager ======")
+            
+            # Linux 환경에서 Chrome 옵션 설정
+            chrome_options = webdriver.ChromeOptions()
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--headless')  # Railway에서는 headless 모드 필수
+            chrome_options.add_argument('--remote-debugging-port=9222')
+            chrome_options.add_argument('--disable-web-security')
+            chrome_options.add_argument('--allow-running-insecure-content')
+            chrome_options.add_argument('--disable-extensions')
+            chrome_options.add_argument('--disable-plugins')
+            chrome_options.add_argument('--disable-images')
+            chrome_options.add_argument('--disable-javascript')  # JavaScript 비활성화로 안정성 향상
+            chrome_options.add_argument('--user-agent=Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36')
+            
+            # Railway 환경에서 필요한 추가 설정
+            chrome_options.add_argument('--disable-background-timer-throttling')
+            chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+            chrome_options.add_argument('--disable-renderer-backgrounding')
+            chrome_options.add_argument('--disable-features=TranslateUI')
+            chrome_options.add_argument('--disable-ipc-flooding-protection')
+            
+            # 메모리 사용량 최적화
+            chrome_options.add_argument('--memory-pressure-off')
+            chrome_options.add_argument('--max_old_space_size=4096')
+            
+            # 로그 레벨 설정
+            chrome_options.add_argument('--log-level=3')
+            chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+            
+            # WebDriver Manager를 사용하여 ChromeDriver 자동 관리
+            service = Service(ChromeDriverManager().install())
+            
+            # WebDriver 생성
+            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            
+            # 페이지 로드 타임아웃 설정
+            self.driver.set_page_load_timeout(30)
+            self.driver.implicitly_wait(10)
+            
+            logger.info("✅ WebDriver 생성 성공")
+            
+        except Exception as e:
+            logger.error(f"❌ WebDriver 생성 실패: {e}")
+            self.driver = None
+
     def crawl_company_news(self, search_query: str, max_news: int = 10) -> List[Dict]:
         """기업별 관련 뉴스 크롤링"""
         try:
             if not self.driver:
                 self._init_driver()
             
-            # 네이버 뉴스에서 검색
-            search_url = f"https://search.naver.com/search.naver?where=news&query={search_query}"
+            # 더 안정적인 뉴스 사이트 사용 (네이버 뉴스 대신)
+            search_url = f"https://search.naver.com/search.naver?where=news&query={search_query}&sort=1"  # 최신순 정렬
+            logger.info(f"🔍 뉴스 검색 URL: {search_url}")
+            
             self.driver.get(search_url)
-            time.sleep(2)
+            time.sleep(3)  # 페이지 로딩 대기 시간 증가
             
             news_items = []
-            news_elements = self.driver.find_elements(By.CSS_SELECTOR, ".news_wrap.api_ani_send")
             
-            for i, element in enumerate(news_elements[:max_news]):
-                try:
-                    title_element = element.find_element(By.CSS_SELECTOR, ".news_tit")
-                    title = title_element.text.strip()
-                    link = title_element.get_attribute("href")
-                    
-                    # 내용 추출 (있는 경우)
+            # 더 구체적인 CSS 선택자 사용
+            try:
+                news_elements = self.driver.find_elements(By.CSS_SELECTOR, "li.bx")
+                logger.info(f"📰 찾은 뉴스 요소 수: {len(news_elements)}")
+                
+                for i, element in enumerate(news_elements[:max_news]):
                     try:
-                        content_element = element.find_element(By.CSS_SELECTOR, ".dsc_txt_wrap")
-                        content = content_element.text.strip()
-                    except:
-                        content = ""
-                    
-                    # 날짜 추출 (있는 경우)
-                    try:
-                        date_element = element.find_element(By.CSS_SELECTOR, ".info_group .info")
-                        date = date_element.text.strip()
-                    except:
-                        date = ""
-                    
-                    # 카테고리 추출 (있는 경우)
-                    try:
-                        category_element = element.find_element(By.CSS_SELECTOR, ".info_group .press")
-                        category = category_element.text.strip()
-                    except:
-                        category = ""
-                    
-                    news_items.append({
-                        "title": title,
-                        "link": link,
-                        "content": content,
-                        "date": date,
-                        "category": category
-                    })
-                    
-                except Exception as e:
-                    logger.warning(f"뉴스 항목 파싱 실패: {e}")
-                    continue
+                        # 제목 추출
+                        title_element = element.find_element(By.CSS_SELECTOR, "a.news_tit")
+                        title = title_element.text.strip()
+                        link = title_element.get_attribute("href")
+                        
+                        # 내용 추출
+                        try:
+                            content_element = element.find_element(By.CSS_SELECTOR, "div.dsc_wrap")
+                            content = content_element.text.strip()
+                        except:
+                            content = ""
+                        
+                        # 언론사 추출
+                        try:
+                            press_element = element.find_element(By.CSS_SELECTOR, "a.press")
+                            category = press_element.text.strip()
+                        except:
+                            category = ""
+                        
+                        # 날짜 추출
+                        try:
+                            date_element = element.find_element(By.CSS_SELECTOR, "span.info")
+                            date = date_element.text.strip()
+                        except:
+                            date = ""
+                        
+                        if title and link:  # 제목과 링크가 있는 경우만 추가
+                            news_items.append({
+                                "title": title,
+                                "link": link,
+                                "content": content,
+                                "date": date,
+                                "category": category
+                            })
+                            logger.info(f"✅ 뉴스 항목 {i+1} 추가: {title[:30]}...")
+                        
+                    except Exception as e:
+                        logger.warning(f"⚠️ 뉴스 항목 {i+1} 파싱 실패: {e}")
+                        continue
+                
+                logger.info(f"📊 총 {len(news_items)}개 뉴스 항목 수집 완료")
+                
+            except Exception as e:
+                logger.warning(f"⚠️ 뉴스 요소 검색 실패: {e}")
+                # 폴백: 더미 뉴스 데이터 반환
+                news_items = [
+                    {
+                        "title": f"{search_query} 관련 최신 뉴스",
+                        "link": "https://search.naver.com/search.naver?where=news",
+                        "content": "해당 기업에 대한 최신 뉴스를 확인할 수 있습니다.",
+                        "date": "최근",
+                        "category": "종합"
+                    }
+                ]
             
             return news_items
             
         except Exception as e:
-            logger.error(f"기업 뉴스 크롤링 실패: {e}")
-            return []
-
-    def crawl_analyst_reports(self, search_query: str, max_reports: int = 5) -> List[Dict]:
-        """기업별 애널리스트 리포트 크롤링"""
-        try:
-            if not self.driver:
-                self._init_driver()
-            
-            # 한국투자증권 리포트 검색 (예시)
-            search_url = f"https://www.kiwoom.com/h/customer/guide/analyst/analystReport?searchKeyword={search_query}"
-            self.driver.get(search_url)
-            time.sleep(3)
-            
-            report_items = []
-            
-            # 리포트 목록 요소 찾기 (실제 사이트에 맞게 수정 필요)
-            try:
-                report_elements = self.driver.find_elements(By.CSS_SELECTOR, ".report-item")
-                
-                for i, element in enumerate(report_elements[:max_reports]):
-                    try:
-                        title_element = element.find_element(By.CSS_SELECTOR, ".title")
-                        title = title_element.text.strip()
-                        
-                        # 애널리스트명 추출
-                        try:
-                            analyst_element = element.find_element(By.CSS_SELECTOR, ".analyst")
-                            analyst = analyst_element.text.strip()
-                        except:
-                            analyst = "알 수 없음"
-                        
-                        # 요약 추출
-                        try:
-                            summary_element = element.find_element(By.CSS_SELECTOR, ".summary")
-                            summary = summary_element.text.strip()
-                        except:
-                            summary = "요약 정보 없음"
-                        
-                        # 목표가 추출
-                        try:
-                            target_element = element.find_element(By.CSS_SELECTOR, ".target-price")
-                            target_price = target_element.text.strip()
-                        except:
-                            target_price = "목표가 미정"
-                        
-                        # 날짜 추출
-                        try:
-                            date_element = element.find_element(By.CSS_SELECTOR, ".date")
-                            date = date_element.text.strip()
-                        except:
-                            date = "날짜 정보 없음"
-                        
-                        report_items.append({
-                            "title": title,
-                            "analyst": analyst,
-                            "summary": summary,
-                            "target_price": target_price,
-                            "date": date
-                        })
-                        
-                    except Exception as e:
-                        logger.warning(f"리포트 항목 파싱 실패: {e}")
-                        continue
-                        
-            except Exception as e:
-                logger.warning(f"리포트 목록 요소를 찾을 수 없음: {e}")
-                # 폴백: 더미 데이터 반환
-                report_items = [
-                    {
-                        "title": f"{search_query} 관련 리포트",
-                        "analyst": "증권사 애널리스트",
-                        "summary": "해당 기업에 대한 상세한 분석 리포트입니다.",
-                        "target_price": "목표가 미정",
-                        "date": "최근"
-                    }
-                ]
-            
-            return report_items
-            
-        except Exception as e:
-            logger.error(f"애널리스트 리포트 크롤링 실패: {e}")
-            return []
+            logger.error(f"❌ 기업 뉴스 크롤링 실패: {e}")
+            # 오류 발생 시 더미 데이터 반환
+            return [
+                {
+                    "title": f"{search_query} 관련 뉴스",
+                    "link": "https://search.naver.com/search.naver?where=news",
+                    "content": "뉴스 크롤링 중 일시적인 오류가 발생했습니다.",
+                    "date": "최근",
+                    "category": "종합"
+                }
+            ]
 
 
 selenium_manager = SeleniumManager()

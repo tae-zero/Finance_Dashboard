@@ -107,15 +107,70 @@ async def get_company_news(company_name: str):
 
 @router.get("/company/{company_name}/analyst-report")
 async def get_company_analyst_report(company_name: str):
-    """기업별 애널리스트 리포트 크롤링"""
+    """기업별 애널리스트 리포트 크롤링 - fnguide.com 사용"""
     try:
-        # Selenium을 사용하여 기업별 애널리스트 리포트 크롤링
+        # 기업 정보에서 종목코드 가져오기
+        company_data = company_service.get_company_data(company_name)
+        if not company_data:
+            raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다")
+        
+        # 종목코드 추출 (6자리로 패딩)
+        code = str(company_data.get('종목코드', '')).zfill(6)
+        
+        # fnguide.com에서 애널리스트 리포트 크롤링
         selenium_manager = SeleniumManager()
         
-        # 한국투자증권 등에서 기업명으로 리포트 검색
-        search_query = f"{company_name} 애널리스트 리포트"
-        report_data = selenium_manager.crawl_analyst_reports(search_query, max_reports=5)
+        url = f"https://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode={code}&MenuYn=Y&ReportGB=&NewMenuID=108"
+        
+        def custom_scraping_logic(driver):
+            from selenium.webdriver.common.by import By
+            
+            data = []
+            try:
+                rows = driver.find_elements(By.XPATH, '//*[@id="bodycontent4"]/tr')
+                
+                for row in rows:
+                    try:
+                        # 각 컬럼 데이터 추출
+                        date = row.find_element(By.XPATH, './td[1]').text.strip()
+                        title = row.find_element(By.XPATH, './td[2]//span[@class="txt2"]').text.strip()
+                        
+                        # 요약 정보 추출
+                        summary_parts = row.find_elements(By.XPATH, './td[2]//dd')
+                        summary = " / ".join([p.text.strip() for p in summary_parts if p.text.strip()])
+                        
+                        # 추가 정보 추출
+                        opinion = row.find_element(By.XPATH, './td[3]/span').text.strip() if row.find_elements(By.XPATH, './td[3]/span') else ''
+                        target_price = row.find_element(By.XPATH, './td[4]/span').text.strip() if row.find_elements(By.XPATH, './td[4]/span') else ''
+                        closing_price = row.find_element(By.XPATH, './td[5]').text.strip() if row.find_elements(By.XPATH, './td[5]') else ''
+                        analyst = row.find_element(By.XPATH, './td[6]').text.strip() if row.find_elements(By.XPATH, './td[6]') else ''
+                        
+                        data.append({
+                            "date": date,
+                            "title": title,
+                            "summary": summary,
+                            "opinion": opinion,
+                            "target_price": target_price,
+                            "closing_price": closing_price,
+                            "analyst": analyst
+                        })
+                        
+                        if len(data) >= 5:
+                            break
+                            
+                    except Exception as e:
+                        print(f"⚠️ 행 파싱 중 오류 발생: {e}")
+                        continue
+                        
+            except Exception as e:
+                print(f"⚠️ 전체 파싱 중 오류 발생: {e}")
+            
+            return data
+        
+        # Selenium으로 크롤링 실행
+        report_data = await selenium_manager.scrape_with_custom_logic(url, custom_scraping_logic, wait_time=3)
         
         return {"reports": report_data}
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"애널리스트 리포트 크롤링 실패: {str(e)}")
