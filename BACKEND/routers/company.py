@@ -42,10 +42,10 @@ async def get_all_company_names():
 
 @router.get("/metrics/{name}")
 async def get_company_metrics(name: str):
-    """기업 재무지표 조회"""
+    """기업 재무지표 조회 (users 컬렉션에서)"""
     try:
-        # 임시로 빈 객체 반환 (나중에 구현)
-        return {}
+        metrics = company_service.get_company_financial_metrics(name)
+        return metrics
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"재무지표 조회 실패: {str(e)}")
 

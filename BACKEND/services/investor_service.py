@@ -75,24 +75,13 @@ def _get_market_trading_value_by_investor_safe(
 
     for i in range(max_back + 1):
         try:
-            # 1) detail=False로 먼저 시도
+            # detail 인자 없이 호출 (pykrx 버전 호환성)
             with _quiet_pykrx():
                 df = stock.get_market_trading_value_by_investor(
                     s.strftime("%Y%m%d"),  # fromdate
                     e.strftime("%Y%m%d"),  # todate
-                    market_or_ticker,      # 3번째 위치 인자 (KOSPI/KOSDAQ/ALL 또는 종목코드)
-                    detail=False
+                    market_or_ticker       # 3번째 위치 인자 (KOSPI/KOSDAQ/ALL 또는 종목코드)
                 )
-            
-            if df is None or df.empty:
-                # 2) detail=True로 재시도
-                with _quiet_pykrx():
-                    df = stock.get_market_trading_value_by_investor(
-                        s.strftime("%Y%m%d"),
-                        e.strftime("%Y%m%d"),
-                        market_or_ticker,
-                        detail=True
-                    )
             
             if df is not None and not df.empty:
                 # 멀티인덱스 처리 및 컬럼 정규화

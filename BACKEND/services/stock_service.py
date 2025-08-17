@@ -74,7 +74,12 @@ class StockService:
         개별 종목 가격. 실패/빈결과여도 [] 반환(예외/에러 dict 금지).
         """
         try:
-            df = yf.download(ticker, period=period, interval="1d", progress=False, threads=False)
+            # period 대신 start/end 사용 (더 안정적)
+            today = date.today()
+            start = today - timedelta(days=365)
+            end = today + timedelta(days=1)
+            
+            df = yf.download(ticker, start=start, end=end, interval="1d", progress=False, threads=False)
             data = _normalize_yf_close(df)
             if data is None:
                 logger.warning("yfinance 종목 데이터 없음: %s", ticker)

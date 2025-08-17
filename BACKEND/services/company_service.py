@@ -36,58 +36,47 @@ class CompanyService:
         try:
             logger.info(f"🔍 기업 검색 시작: '{company_name}'")
             
-            # 컬렉션 가져오기
-            collection = self._get_collection("explain")
-            logger.info(f"📊 컬렉션명: explain")
+            # 컬렉션 가져오기 (users에서 재무지표 원본 데이터 가져오기)
+            collection = self._get_collection("users")
+            logger.info(f"📊 컬렉션명: users (재무지표 원본)")
             
             # 기업명으로 검색
             query = {"기업명": company_name}
             logger.info(f"🔍 검색 쿼리: {query}")
-            
-            # 전체 문서 수 확인
-            total_count = collection.count_documents({})
-            logger.info(f"📈 컬렉션 총 문서 수: {total_count}")
-            
-            # 첫 번째 문서의 구조 확인
-            first_doc = collection.find_one({})
-            if first_doc:
-                logger.info(f"📋 첫 번째 문서 키들: {list(first_doc.keys())}")
-                if '기업명' in first_doc:
-                    logger.info(f"📋 '기업명' 필드 값: '{first_doc['기업명']}'")
             
             # 실제 검색 실행
             company = collection.find_one(query)
             
             if company:
                 logger.info(f"✅ 기업 데이터 찾음: {company_name}")
-                
-                # 실제 데이터 구조 로깅
-                logger.info(f"📋 찾은 기업 데이터 키들: {list(company.keys())}")
-                
-                # 요약 관련 필드 확인
-                summary_fields = [key for key in company.keys() if '요약' in key or '개요' in key]
-                logger.info(f"📋 요약/개요 관련 필드들: {summary_fields}")
-                
-                for field in summary_fields:
-                    value = company.get(field, '')
-                    logger.info(f"📋 '{field}' 필드 값: '{str(value)[:100]}...'")
-                
                 # ObjectId 변환
                 company = self._convert_objectid(company)
                 return company
             else:
                 logger.warning(f"⚠️ 기업을 찾을 수 없음: {company_name}")
-                
-                # 유사한 기업명 찾기
-                similar_companies = collection.find({"기업명": {"$regex": company_name[:2]}}).limit(5)
-                similar_names = [doc.get('기업명', '') for doc in similar_companies]
-                logger.info(f"🔍 유사한 기업명들: {similar_names}")
-                
                 return None
                 
         except Exception as e:
             logger.error(f"❌ 기업 데이터 조회 실패 ({company_name}): {e}")
             return None
+
+    def get_company_financial_metrics(self, company_name: str) -> Dict:
+        """기업 재무지표 조회 (users 컬렉션에서)"""
+        try:
+            collection = self._get_collection("users")
+            query = {"기업명": company_name}
+            
+            company = collection.find_one(query)
+            if company:
+                # ObjectId 변환
+                company = self._convert_objectid(company)
+                return company
+            else:
+                return {"error": "해당 기업의 재무지표를 찾을 수 없습니다."}
+                
+        except Exception as e:
+            logger.error(f"❌ 재무지표 조회 실패 ({company_name}): {e}")
+            return {"error": f"재무지표 조회 중 오류 발생: {e}"}
 
     async def get_all_company_names(self):
         """모든 기업 이름 조회"""
