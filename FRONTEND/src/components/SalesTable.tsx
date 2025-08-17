@@ -6,6 +6,7 @@ import api from '../config/api';
 
 interface SalesRow {
   사업부문: string;
+  매출유형?: string;  // CSV 데이터용 (선택적)
   매출품목명: string;
   구분: string;
   '2022_12 매출액': string | number;
@@ -98,6 +99,26 @@ function SalesTable({ name }: SalesTableProps) {
     return acc;
   }, {});
 
+  // CSV 상세 데이터 가져오기
+  const [csvData, setCsvData] = useState<SalesRow[]>([]);
+  const [showCsvData, setShowCsvData] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+
+  const fetchCsvData = async () => {
+    try {
+      setCsvLoading(true);
+      const response = await api.get(`/company/${name}/sales-composition`);
+      if (response.data && response.data.data) {
+        setCsvData(response.data.data);
+        setShowCsvData(true);
+      }
+    } catch (err) {
+      console.error("CSV 데이터 로드 실패:", err);
+    } finally {
+      setCsvLoading(false);
+    }
+  };
+
   const renderValue = (val: string | number) => {
     if (typeof val === 'string' && val.includes('%')) return val;
     const num = Number(val);
@@ -112,7 +133,25 @@ function SalesTable({ name }: SalesTableProps) {
 
   return (
     <div>
-      <h3 className="text-xl font-bold text-gray-800 mb-4">💰 사업부문별 매출액 (단위: 백만원)</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold text-gray-800">💰 사업부문별 매출액 (단위: 백만원)</h3>
+        <button
+          onClick={fetchCsvData}
+          disabled={csvLoading}
+          className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+        >
+          {csvLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              로딩중...
+            </>
+          ) : (
+            <>
+              📊 보기 ▼
+            </>
+          )}
+        </button>
+      </div>
       {Object.entries(grouped).map(([groupKey, items], idx) => (
         <div key={idx} style={{ marginBottom: '30px' }}>
           <h4 style={{ margin: '10px 0', fontSize: '16px', fontWeight: 'bold' }}>{groupKey}</h4>
@@ -142,6 +181,41 @@ function SalesTable({ name }: SalesTableProps) {
           </table>
         </div>
       ))}
+
+      {/* CSV 상세 데이터 표시 */}
+      {showCsvData && csvData.length > 0 && (
+        <div className="mt-8 p-6 bg-gray-50 rounded-xl border-2 border-gray-200">
+          <h4 className="text-lg font-bold text-gray-800 mb-4">📋 {name} 매출 구성 상세 데이터 (CSV)</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-3 py-2 text-left">사업부문</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left">매출유형</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left">매출품목명</th>
+                  <th className="border border-gray-300 px-3 py-2 text-left">구분</th>
+                  <th className="border border-gray-300 px-3 py-2 text-right">2022/12</th>
+                  <th className="border border-gray-300 px-3 py-2 text-right">2023/12</th>
+                  <th className="border border-gray-300 px-3 py-2 text-right">2024/12</th>
+                </tr>
+              </thead>
+              <tbody>
+                {csvData.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-gray-50">
+                    <td className="border border-gray-300 px-3 py-2">{row.사업부문}</td>
+                    <td className="border border-gray-300 px-3 py-2">{row.매출유형}</td>
+                    <td className="border border-gray-300 px-3 py-2">{row.매출품목명}</td>
+                    <td className="border border-gray-300 px-3 py-2">{row.구분}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-right">{renderValue(row['2022_12 매출액'])}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-right">{renderValue(row['2023_12 매출액'])}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-right">{renderValue(row['2024_12 매출액'])}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

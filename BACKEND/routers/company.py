@@ -96,10 +96,10 @@ async def get_company_sales_composition(company_name: str):
             company_data = df[df['종목명'].str.contains(company_name, na=False)]
         
         if company_data.empty:
-            return {"message": "해당 기업의 매출 구성 데이터를 찾을 수 없습니다.", "data": None}
+            return {"message": "해당 기업의 매출 구성 데이터를 찾을 수 없습니다.", "data": []}
         
-        # 첫 번째 매칭 결과 반환
-        result = company_data.iloc[0].to_dict()
+        # 모든 매칭 데이터 반환 (리스트로)
+        result = company_data.to_dict(orient='records')
         
         return {
             "message": "매출 구성 데이터 조회 성공",
