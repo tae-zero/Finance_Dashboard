@@ -69,12 +69,60 @@ class CompanyService:
                 # users에서 재무지표 추가
                 if users_data:
                     company.update({
-                        "지표": users_data.get("지표", {}),
-                        "개요": users_data.get("개요", {})
+                        "지표": users_data.get("지표", {})
                     })
+                
+                # outline 컬렉션에서 기업개요 가져오기
+                try:
+                    outline_collection = self._get_collection("outline")
+                    outline_query = {"종목": str(company.get("종목코드", ""))}
+                    outline_data = outline_collection.find_one(outline_query)
+                    
+                    if outline_data:
+                        company.update({
+                            "개요": {
+                                "주소": outline_data.get("주", ""),
+                                "설립일": outline_data.get("설립일", ""),
+                                "대표자": outline_data.get("대표자", ""),
+                                "전화번호": outline_data.get("전화번호", ""),
+                                "홈페이지": outline_data.get("홈페이지", "")
+                            }
+                        })
+                except Exception as e:
+                    logger.warning(f"outline 컬렉션 조회 실패: {e}")
+                    company.update({"개요": {}})
                 
                 # ObjectId 변환
                 company = self._convert_objectid(company)
+                
+                # 지분현황.json에서 해당 기업의 지분 정보 찾기
+                try:
+                    import json
+                    with open("지분현황.json", "r", encoding="utf-8") as f:
+                        shareholder_data = json.load(f)
+                    
+                    # 종목코드로 지분 정보 찾기 (A005930 형태)
+                    종목코드_str = str(company.get("종목코드", ""))
+                    if 종목코드_str:
+                        # 종목코드가 5자리면 앞에 A 추가
+                        if len(종목코드_str) == 5:
+                            종목코드_key = f"A{종목코드_str}"
+                        else:
+                            종목코드_key = 종목코드_str
+                        
+                        if 종목코드_key in shareholder_data:
+                            company["지분정보"] = shareholder_data[종목코드_key]
+                            logger.info(f"✅ 지분 정보 로드 성공: {종목코드_key}")
+                        else:
+                            logger.warning(f"⚠️ 지분 정보 없음: {종목코드_key}")
+                            company["지분정보"] = []
+                    else:
+                        company["지분정보"] = []
+                        
+                except Exception as e:
+                    logger.warning(f"지분현황.json 로드 실패: {e}")
+                    company["지분정보"] = []
+                
                 return company
             else:
                 logger.warning(f"⚠️ 기업을 찾을 수 없음: {company_name}")
