@@ -62,6 +62,12 @@ export const API_ENDPOINTS = {
   INDUSTRY_METRICS: '/data/industry-metrics',
   SALES_DATA: '/data/sales-data',
   SHAREHOLDER_DATA: '/data/shareholder-data',
+  
+  // 대시보드 엔드포인트들
+  HOT_NEWS: '/news/hot/kospi',
+  MAIN_NEWS: '/news/earnings',
+  KOSPI_DATA: '/stock/price/^KS11',
+  INVESTOR_VALUE: '/investor/value',
 };
 
 // 디버깅 로그
