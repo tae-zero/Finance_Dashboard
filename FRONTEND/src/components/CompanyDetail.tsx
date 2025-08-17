@@ -179,32 +179,76 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
   }, [name]);
 
   useEffect(() => {
-    fetch("/기업별_재무지표.json")
-      .then(res => res.json())
-      .then(data => {
-        if (data[name]) {
-          setMetrics(data[name]);
+    // 정적 JSON 파일 대신 백엔드 API 사용
+    const fetchFinancialMetrics = async () => {
+      try {
+        const response = await api.get(API_ENDPOINTS.FINANCIAL_METRICS);
+        if (response.data && response.data[name]) {
+          setMetrics(response.data[name]);
         }
-      })
-      .catch(err => console.error("재무지표 로드 실패:", err));
+      } catch (err) {
+        console.error("재무지표 로드 실패:", err);
+        // 폴백: 정적 파일 시도
+        fetch("/기업별_재무지표.json")
+          .then(res => res.json())
+          .then(data => {
+            if (data[name]) {
+              setMetrics(data[name]);
+            }
+          })
+          .catch(err => console.error("정적 파일 폴백 실패:", err));
+      }
+    };
+
+    if (name) {
+      fetchFinancialMetrics();
+    }
   }, [name]);
 
   useEffect(() => {
-    fetch("/industry_metrics.json")
-      .then(res => res.json())
-      .then(data => {
-        if (company && data[company.업종명]) {
-          setIndustryMetrics(data[company.업종명]);
+    // 정적 JSON 파일 대신 백엔드 API 사용
+    const fetchIndustryMetrics = async () => {
+      try {
+        const response = await api.get(API_ENDPOINTS.INDUSTRY_METRICS);
+        if (company && response.data && response.data[company.업종명]) {
+          setIndustryMetrics(response.data[company.업종명]);
         }
-      })
-      .catch(err => console.error("산업 지표 로드 실패:", err));
+      } catch (err) {
+        console.error("산업 지표 로드 실패:", err);
+        // 폴백: 정적 파일 시도
+        fetch("/industry_metrics.json")
+          .then(res => res.json())
+          .then(data => {
+            if (company && data[company.업종명]) {
+              setIndustryMetrics(data[company.업종명]);
+            }
+          })
+          .catch(err => console.error("정적 파일 폴백 실패:", err));
+      }
+    };
+
+    if (company) {
+      fetchIndustryMetrics();
+    }
   }, [company]);
 
   useEffect(() => {
-    fetch('/기업별_재무지표.json')
-      .then(res => res.json())
-      .then(data => setJsonIndicators(data))
-      .catch(err => console.error('❌ JSON 불러오기 실패:', err));
+    // 정적 JSON 파일 대신 백엔드 API 사용
+    const fetchAllIndicators = async () => {
+      try {
+        const response = await api.get(API_ENDPOINTS.FINANCIAL_METRICS);
+        setJsonIndicators(response.data);
+      } catch (err) {
+        console.error("전체 재무지표 로드 실패:", err);
+        // 폴백: 정적 파일 시도
+        fetch('/기업별_재무지표.json')
+          .then(res => res.json())
+          .then(data => setJsonIndicators(data))
+          .catch(err => console.error("정적 파일 폴백 실패:", err));
+      }
+    };
+
+    fetchAllIndicators();
   }, []);
 
   // 기업 개요 데이터는 백엔드 API를 통해 가져와야 함

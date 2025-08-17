@@ -66,6 +66,12 @@ export const API_ENDPOINTS = {
   INVESTOR_TRENDS: (days: number) => `/investor/trends?days=${days}`,
   TREASURE_DATA: `/company/treasure/data`,
   TOP_RANKINGS: `/investor/rankings/top5`,
+  
+  // JSON 데이터 API 엔드포인트 추가
+  FINANCIAL_METRICS: `/company/data/financial-metrics`,
+  INDUSTRY_METRICS: `/company/data/industry-metrics`,
+  SALES_DATA: `/company/data/sales-data`,
+  SHAREHOLDER_DATA: `/company/data/shareholder-data`,
 };
 
 // 디버깅 로그
