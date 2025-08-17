@@ -16,13 +16,8 @@ import {
   BarElement,
   ArcElement,
 } from 'chart.js';
-import SalesTable from './SalesTable';
-import CompanySummary from './CompanySummary';
-import CompareChart from './CompareChart';
-import PieChart from './PieChart';
-import ShareholderChart from './ShareholderChart';
-import api, { API_ENDPOINTS } from '../config/api';
 
+// Chart.js 등록을 더 명시적으로
 ChartJS.register(
   LineElement, 
   PointElement, 
@@ -34,6 +29,17 @@ ChartJS.register(
   BarElement,
   ArcElement
 );
+
+// 추가로 Bar 컨트롤러 명시적 등록
+import { BarController } from 'chart.js';
+ChartJS.register(BarController);
+
+import SalesTable from './SalesTable';
+import CompanySummary from './CompanySummary';
+import CompareChart from './CompareChart';
+import PieChart from './PieChart';
+import ShareholderChart from './ShareholderChart';
+import api, { API_ENDPOINTS } from '../config/api';
 
 interface CompanyDetailProps {
   companyName?: string;
