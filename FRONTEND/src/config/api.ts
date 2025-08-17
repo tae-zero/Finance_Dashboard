@@ -56,6 +56,7 @@ export const API_ENDPOINTS = {
   // 새로운 엔드포인트들
   COMPANY_NEWS: (name: string) => `/company/${encodeURIComponent(name)}/news`,
   ANALYST_REPORT: (name: string) => `/company/${encodeURIComponent(name)}/analyst-report`,
+  COMPANY_NAMES: '/company/names/all',  // 기업 목록 조회 엔드포인트 추가
   
   // JSON 데이터 엔드포인트들
   FINANCIAL_METRICS: '/data/financial-metrics',

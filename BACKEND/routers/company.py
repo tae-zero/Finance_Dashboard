@@ -35,8 +35,8 @@ async def get_company_data(name: str):
 async def get_all_company_names():
     """전체 기업명 목록 조회"""
     try:
-        # 임시로 빈 배열 반환 (나중에 구현)
-        return []
+        company_names = await company_service.get_all_company_names()
+        return company_names
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"기업 목록 조회 실패: {str(e)}")
 
