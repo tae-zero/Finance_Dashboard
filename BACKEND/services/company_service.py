@@ -35,25 +35,28 @@ class CompanyService:
         """기업 데이터 조회"""
         try:
             logger.info(f"🔍 기업 검색 시작: '{company_name}'")
-            logger.info(f"📊 컬렉션명: {self.collection_name}")
+            
+            # 컬렉션 가져오기
+            collection = self._get_collection("explain")
+            logger.info(f"📊 컬렉션명: explain")
             
             # 기업명으로 검색
             query = {"기업명": company_name}
             logger.info(f"🔍 검색 쿼리: {query}")
             
             # 전체 문서 수 확인
-            total_count = self.collection.count_documents({})
+            total_count = collection.count_documents({})
             logger.info(f"📈 컬렉션 총 문서 수: {total_count}")
             
             # 첫 번째 문서의 구조 확인
-            first_doc = self.collection.find_one({})
+            first_doc = collection.find_one({})
             if first_doc:
                 logger.info(f"📋 첫 번째 문서 키들: {list(first_doc.keys())}")
                 if '기업명' in first_doc:
                     logger.info(f"📋 '기업명' 필드 값: '{first_doc['기업명']}'")
             
             # 실제 검색 실행
-            company = self.collection.find_one(query)
+            company = collection.find_one(query)
             
             if company:
                 logger.info(f"✅ 기업 데이터 찾음: {company_name}")
@@ -71,18 +74,12 @@ class CompanyService:
                 
                 # ObjectId 변환
                 company = self._convert_objectid(company)
-                
-                # 필드명 변환: MongoDB의 "짧은" → "짧은요약"
-                if '짧은' in company and '짧은요약' not in company:
-                    company['짧은요약'] = company['짧은']
-                    logger.info(f"✅ 필드명 변환: '짧은' → '짧은요약'")
-                
                 return company
             else:
                 logger.warning(f"⚠️ 기업을 찾을 수 없음: {company_name}")
                 
                 # 유사한 기업명 찾기
-                similar_companies = self.collection.find({"기업명": {"$regex": company_name[:2]}}).limit(5)
+                similar_companies = collection.find({"기업명": {"$regex": company_name[:2]}}).limit(5)
                 similar_names = [doc.get('기업명', '') for doc in similar_companies]
                 logger.info(f"🔍 유사한 기업명들: {similar_names}")
                 
