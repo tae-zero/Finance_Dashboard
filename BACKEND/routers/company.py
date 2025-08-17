@@ -34,22 +34,38 @@ async def get_company_data(name: str):
 @router.get("/names/all")
 async def get_all_company_names():
     """전체 기업명 목록 조회"""
-    return await company_service.get_all_company_names()
+    try:
+        # 임시로 빈 배열 반환 (나중에 구현)
+        return []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"기업 목록 조회 실패: {str(e)}")
 
 @router.get("/metrics/{name}")
 async def get_company_metrics(name: str):
     """기업 재무지표 조회"""
-    return await company_service.get_company_metrics(name)
+    try:
+        # 임시로 빈 객체 반환 (나중에 구현)
+        return {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"재무지표 조회 실패: {str(e)}")
 
 @router.get("/sales/{name}")
 async def get_company_sales(name: str):
     """기업 매출 데이터 조회"""
-    return await company_service.get_sales_data(name)
+    try:
+        # 임시로 빈 객체 반환 (나중에 구현)
+        return {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"매출 데이터 조회 실패: {str(e)}")
 
 @router.get("/treasure/data")
 async def get_treasure_data():
     """투자 보물찾기 데이터 조회"""
-    return await company_service.get_treasure_data()
+    try:
+        # 임시로 빈 객체 반환 (나중에 구현)
+        return {}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"보물찾기 데이터 조회 실패: {str(e)}")
 
 @router.get("/data/financial-metrics")
 async def get_financial_metrics():
@@ -99,7 +115,7 @@ async def get_shareholder_data():
 async def get_company_info(company_name: str):
     """기업 정보 조회"""
     try:
-        company_data = await company_service.get_company_by_name(company_name)
+        company_data = company_service.get_company_data(company_name)
         if not company_data:
             raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다.")
         return company_data
@@ -151,7 +167,7 @@ async def get_analyst_report(company_name: str):
     """애널리스트 리포트 크롤링"""
     try:
         # 기업 정보에서 종목코드 가져오기
-        company_data = await company_service.get_company_by_name(company_name)
+        company_data = company_service.get_company_data(company_name)
         if not company_data:
             raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다.")
         
