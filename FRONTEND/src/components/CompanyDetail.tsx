@@ -137,6 +137,14 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
         console.log("🏢 기업 정보 API 호출 중...");
         const companyRes = await api.get(API_ENDPOINTS.COMPANY(name));
         console.log("✅ 기업 정보 성공:", companyRes.data);
+        
+        // 디버깅: 기업 요약 데이터 확인
+        console.log("🔍 기업 요약 데이터 확인:", {
+          짧은요약: companyRes.data.짧은요약,
+          요약: companyRes.data.요약,
+          전체데이터: companyRes.data
+        });
+        
         setCompany(companyRes.data);
 
         // 기업 정보를 받은 후 종목코드로 다른 API 호출
@@ -377,7 +385,7 @@ function CompanyDetail({ companyName }: CompanyDetailProps) {
             {/* 기업 요약 */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 mb-8">
               <CompanySummary 
-                summary={company.요약 || company.짧은요약 || '요약 정보가 없습니다.'} 
+                summary={company.짧은요약 || company.요약 || '요약 정보가 없습니다.'} 
                 outline={company.개요 || {}} 
               />
             </div>

@@ -1,15 +1,24 @@
+import pandas as pd
+import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 import json
-import os
 from utils.selenium_utils import SeleniumManager
 from services.company_service import CompanyService
+from services.stock_service import StockService
+from services.investor_service import InvestorService
 from typing import List, Dict
 
 router = APIRouter(prefix="/company", tags=["기업 정보"])
 
 # 서비스 인스턴스
 company_service = CompanyService()
+stock_service = StockService()
+investor_service = InvestorService()
+selenium_manager = SeleniumManager()
+
+# CSV 파일 경로
+CSV_FILE_PATH = "NICE_내수수출_코스피.csv"
 
 @router.get("/{name}")
 async def get_company_data(name: str):
@@ -81,96 +90,118 @@ async def get_shareholder_data():
         raise HTTPException(status_code=500, detail=f"지분현황 데이터 로드 실패: {str(e)}")
 
 @router.get("/company/{company_name}")
-async def get_company_data(company_name: str):
+async def get_company_info(company_name: str):
+    """기업 정보 조회"""
     try:
-        company_data = company_service.get_company_data(company_name)
+        company_data = await company_service.get_company_by_name(company_name)
         if not company_data:
-            raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다")
+            raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다.")
         return company_data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"기업 데이터 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"기업 정보 조회 실패: {str(e)}")
+
+@router.get("/company/{company_name}/sales-composition")
+async def get_company_sales_composition(company_name: str):
+    """기업별 매출 구성 데이터 조회 (CSV 파일에서)"""
+    try:
+        if not os.path.exists(CSV_FILE_PATH):
+            raise HTTPException(status_code=404, detail="매출 구성 데이터 파일을 찾을 수 없습니다.")
+        
+        # CSV 파일 읽기
+        df = pd.read_csv(CSV_FILE_PATH, encoding='utf-8')
+        
+        # 종목명으로 데이터 찾기
+        company_data = df[df['종목명'] == company_name]
+        
+        if company_data.empty:
+            # 정확한 매칭이 안되면 부분 매칭 시도
+            company_data = df[df['종목명'].str.contains(company_name, na=False)]
+        
+        if company_data.empty:
+            return {"message": "해당 기업의 매출 구성 데이터를 찾을 수 없습니다.", "data": None}
+        
+        # 첫 번째 매칭 결과 반환
+        result = company_data.iloc[0].to_dict()
+        
+        return {
+            "message": "매출 구성 데이터 조회 성공",
+            "data": result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"매출 구성 데이터 조회 실패: {str(e)}")
 
 @router.get("/company/{company_name}/news")
 async def get_company_news(company_name: str):
-    """기업별 관련 뉴스 크롤링"""
+    """기업 관련 뉴스 크롤링"""
     try:
-        # Selenium을 사용하여 기업별 뉴스 크롤링
-        selenium_manager = SeleniumManager()
-        
-        # 네이버 뉴스에서 기업명으로 검색
-        search_query = f"{company_name} 뉴스"
-        news_data = selenium_manager.crawl_company_news(search_query, max_news=10)
-        
+        news_data = await selenium_manager.crawl_company_news(company_name)
         return {"news": news_data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"뉴스 크롤링 실패: {str(e)}")
 
 @router.get("/company/{company_name}/analyst-report")
-async def get_company_analyst_report(company_name: str):
-    """기업별 애널리스트 리포트 크롤링 - fnguide.com 사용"""
+async def get_analyst_report(company_name: str):
+    """애널리스트 리포트 크롤링"""
     try:
         # 기업 정보에서 종목코드 가져오기
-        company_data = company_service.get_company_data(company_name)
+        company_data = await company_service.get_company_by_name(company_name)
         if not company_data:
-            raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다")
+            raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다.")
         
-        # 종목코드 추출 (6자리로 패딩)
-        code = str(company_data.get('종목코드', '')).zfill(6)
+        종목코드 = company_data.get('종목코드')
+        if not 종목코드:
+            raise HTTPException(status_code=400, detail="종목코드 정보가 없습니다.")
         
-        # fnguide.com에서 애널리스트 리포트 크롤링
-        selenium_manager = SeleniumManager()
+        # fnguide.com에서 직접 크롤링
+        url = f"https://www.fnguide.com/SPV/SPV_1000.asp?gnb=1&gno={종목코드}"
         
-        url = f"https://comp.fnguide.com/SVO2/ASP/SVD_Consensus.asp?pGB=1&gicode={code}&MenuYn=Y&ReportGB=&NewMenuID=108"
-        
+        # 사용자 제공 로직 사용
         def custom_scraping_logic(driver):
-            from selenium.webdriver.common.by import By
-            
-            data = []
             try:
-                rows = driver.find_elements(By.XPATH, '//*[@id="bodycontent4"]/tr')
+                # 페이지 로드 대기
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+                from selenium.webdriver.common.by import By
                 
-                for row in rows:
+                wait = WebDriverWait(driver, 10)
+                
+                # 애널리스트 리포트 테이블 찾기
+                table = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.table_common")))
+                
+                # 테이블 데이터 파싱
+                rows = table.find_elements(By.CSS_SELECTOR, "tr")
+                reports = []
+                
+                for row in rows[1:]:  # 헤더 제외
                     try:
-                        # 각 컬럼 데이터 추출
-                        date = row.find_element(By.XPATH, './td[1]').text.strip()
-                        title = row.find_element(By.XPATH, './td[2]//span[@class="txt2"]').text.strip()
-                        
-                        # 요약 정보 추출
-                        summary_parts = row.find_elements(By.XPATH, './td[2]//dd')
-                        summary = " / ".join([p.text.strip() for p in summary_parts if p.text.strip()])
-                        
-                        # 추가 정보 추출
-                        opinion = row.find_element(By.XPATH, './td[3]/span').text.strip() if row.find_elements(By.XPATH, './td[3]/span') else ''
-                        target_price = row.find_element(By.XPATH, './td[4]/span').text.strip() if row.find_elements(By.XPATH, './td[4]/span') else ''
-                        closing_price = row.find_element(By.XPATH, './td[5]').text.strip() if row.find_elements(By.XPATH, './td[5]') else ''
-                        analyst = row.find_element(By.XPATH, './td[6]').text.strip() if row.find_elements(By.XPATH, './td[6]') else ''
-                        
-                        data.append({
-                            "date": date,
-                            "title": title,
-                            "summary": summary,
-                            "opinion": opinion,
-                            "target_price": target_price,
-                            "closing_price": closing_price,
-                            "analyst": analyst
-                        })
-                        
-                        if len(data) >= 5:
-                            break
+                        cells = row.find_elements(By.CSS_SELECTOR, "td")
+                        if len(cells) >= 4:
+                            date = cells[0].text.strip()
+                            title = cells[1].text.strip()
+                            analyst = cells[2].text.strip()
+                            target_price = cells[3].text.strip()
                             
+                            if date and title:  # 유효한 데이터만
+                                reports.append({
+                                    "date": date,
+                                    "title": title,
+                                    "analyst": analyst,
+                                    "target_price": target_price,
+                                    "summary": f"{title} - {analyst} 분석"
+                                })
                     except Exception as e:
-                        print(f"⚠️ 행 파싱 중 오류 발생: {e}")
                         continue
-                        
+                
+                return {"reports": reports}
+                
             except Exception as e:
-                print(f"⚠️ 전체 파싱 중 오류 발생: {e}")
-            
-            return data
+                return {"reports": [], "error": str(e)}
         
         # Selenium으로 크롤링 실행
-        report_data = await selenium_manager.scrape_with_custom_logic(url, custom_scraping_logic, wait_time=3)
+        result = await selenium_manager.scrape_with_custom_logic(url, custom_scraping_logic)
         
-        return {"reports": report_data}
+        return result
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"애널리스트 리포트 크롤링 실패: {str(e)}")

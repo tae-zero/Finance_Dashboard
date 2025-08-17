@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from utils.database import db_manager
 import logging
 from bson import ObjectId
+from typing import Dict
 
 logger = logging.getLogger("company_service")
 
@@ -30,55 +31,66 @@ class CompanyService:
         else:
             return obj
 
-    async def get_company_data(self, company_name: str):
+    def get_company_data(self, company_name: str) -> Dict:
         """기업 데이터 조회"""
         try:
-            collection = self._get_collection(os.getenv("COLLECTION_USERS", "users"))
-            
-            # 디버깅 로그 추가
             logger.info(f"🔍 기업 검색 시작: '{company_name}'")
-            logger.info(f"📊 컬렉션명: {os.getenv('COLLECTION_USERS', 'users')}")
-            logger.info(f"🔍 검색 쿼리: {{'기업명': '{company_name}'}}")
+            logger.info(f"📊 컬렉션명: {self.collection_name}")
             
-            # 컬렉션에 실제로 몇 개의 문서가 있는지 확인
-            total_docs = collection.count_documents({})
-            logger.info(f"📈 컬렉션 총 문서 수: {total_docs}")
+            # 기업명으로 검색
+            query = {"기업명": company_name}
+            logger.info(f"🔍 검색 쿼리: {query}")
             
-            # 첫 번째 문서 구조 확인
-            first_doc = collection.find_one({})
+            # 전체 문서 수 확인
+            total_count = self.collection.count_documents({})
+            logger.info(f"📈 컬렉션 총 문서 수: {total_count}")
+            
+            # 첫 번째 문서의 구조 확인
+            first_doc = self.collection.find_one({})
             if first_doc:
                 logger.info(f"📋 첫 번째 문서 키들: {list(first_doc.keys())}")
-                if "기업명" in first_doc:
+                if '기업명' in first_doc:
                     logger.info(f"📋 '기업명' 필드 값: '{first_doc['기업명']}'")
-                else:
-                    logger.warning(f"⚠️ '기업명' 필드가 첫 번째 문서에 없습니다!")
+            
+            # 실제 검색 실행
+            company = self.collection.find_one(query)
+            
+            if company:
+                logger.info(f"✅ 기업 데이터 찾음: {company_name}")
+                
+                # 실제 데이터 구조 로깅
+                logger.info(f"📋 찾은 기업 데이터 키들: {list(company.keys())}")
+                
+                # 요약 관련 필드 확인
+                summary_fields = [key for key in company.keys() if '요약' in key or '개요' in key]
+                logger.info(f"📋 요약/개요 관련 필드들: {summary_fields}")
+                
+                for field in summary_fields:
+                    value = company.get(field, '')
+                    logger.info(f"📋 '{field}' 필드 값: '{str(value)[:100]}...'")
+                
+                # ObjectId 변환
+                company = self._convert_objectid(company)
+                
+                # 필드명 변환: MongoDB의 "짧은" → "짧은요약"
+                if '짧은' in company and '짧은요약' not in company:
+                    company['짧은요약'] = company['짧은']
+                    logger.info(f"✅ 필드명 변환: '짧은' → '짧은요약'")
+                
+                return company
             else:
-                logger.warning(f"⚠️ 컬렉션이 비어있습니다!")
-            
-            company_data = collection.find_one({"기업명": company_name})
-            
-            if not company_data:
-                logger.error(f"❌ 기업을 찾을 수 없습니다: '{company_name}'")
-                logger.error(f"❌ 쿼리: {{'기업명': '{company_name}'}}")
+                logger.warning(f"⚠️ 기업을 찾을 수 없음: {company_name}")
                 
-                # 유사한 이름으로 검색 시도
-                similar_companies = collection.find({"기업명": {"$regex": company_name[:2]}}).limit(5)
-                similar_list = list(similar_companies)
-                if similar_list:
-                    logger.info(f"💡 유사한 기업들 (첫 2글자 '{company_name[:2]}'):")
-                    for comp in similar_list:
-                        logger.info(f"   - {comp.get('기업명', 'N/A')}")
+                # 유사한 기업명 찾기
+                similar_companies = self.collection.find({"기업명": {"$regex": company_name[:2]}}).limit(5)
+                similar_names = [doc.get('기업명', '') for doc in similar_companies]
+                logger.info(f"🔍 유사한 기업명들: {similar_names}")
                 
-                raise HTTPException(status_code=404, detail=f"기업을 찾을 수 없습니다: {company_name}")
-            
-            logger.info(f"✅ 기업 데이터 찾음: {company_data.get('기업명', 'N/A')}")
-            
-            # ObjectId를 문자열로 변환
-            company_data = self._convert_objectid(company_data)
-            return company_data
+                return None
+                
         except Exception as e:
-            logger.error(f"기업 데이터 조회 실패 ({company_name}): {str(e)}")
-            raise HTTPException(status_code=503, detail="기업 데이터 조회 실패")
+            logger.error(f"❌ 기업 데이터 조회 실패 ({company_name}): {e}")
+            return None
 
     async def get_all_company_names(self):
         """모든 기업 이름 조회"""
