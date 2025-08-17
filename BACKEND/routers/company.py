@@ -22,8 +22,14 @@ CSV_FILE_PATH = "NICE_내수수출_코스피.csv"
 
 @router.get("/{name}")
 async def get_company_data(name: str):
-    """기업 상세 정보 조회"""
-    return await company_service.get_company_data(name)
+    """기업 데이터 조회"""
+    try:
+        company_data = company_service.get_company_data(name)
+        if not company_data:
+            raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다")
+        return company_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"기업 데이터 조회 실패: {str(e)}")
 
 @router.get("/names/all")
 async def get_all_company_names():
