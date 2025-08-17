@@ -184,10 +184,41 @@ async def get_analyst_report(company_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"애널리스트 리포트 크롤링 실패: {str(e)}")
 
+@router.get("/company/{company_name}/financial-indicators")
+async def get_company_financial_indicators(company_name: str):
+    """기업 재무지표 (원본 데이터) - MongoDB users 컬렉션에서"""
+    try:
+        # MongoDB users 컬렉션에서 기업의 재무지표 데이터 조회
+        company_data = company_service.get_company_data(company_name)
+        if not company_data:
+            raise HTTPException(status_code=404, detail="기업을 찾을 수 없습니다.")
+        
+        # 지표 필드에서 재무지표 데이터 추출
+        indicators = company_data.get('지표', {})
+        
+        return {
+            "company_name": company_name,
+            "indicators": indicators
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"재무지표 조회 실패: {str(e)}")
+
 # 추가 API 엔드포인트들
+@router.get("/data/shareholder-data")
+async def get_shareholder_data():
+    """지분현황 JSON 데이터"""
+    try:
+        with open("지분현황.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="지분현황 파일을 찾을 수 없습니다")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"지분현황 데이터 로드 실패: {str(e)}")
+
 @router.get("/data/financial-metrics")
 async def get_financial_metrics():
-    """기업별 재무지표 JSON 데이터"""
+    """기업별 재무지표 JSON 데이터 (recharts용)"""
     try:
         with open("기업별_재무지표.json", "r", encoding="utf-8") as f:
             return json.load(f)
@@ -217,14 +248,3 @@ async def get_sales_data():
         raise HTTPException(status_code=404, detail="매출데이터 파일을 찾을 수 없습니다")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"매출데이터 로드 실패: {str(e)}")
-
-@router.get("/data/shareholder-data")
-async def get_shareholder_data():
-    """지분현황 JSON 데이터"""
-    try:
-        with open("지분현황.json", "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="지분현황 파일을 찾을 수 없습니다")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"지분현황 데이터 로드 실패: {str(e)}")
