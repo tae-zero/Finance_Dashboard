@@ -112,7 +112,7 @@ async def get_company_sales_composition(company_name: str):
 @router.get("/company/{company_name}/news")
 async def get_company_news(company_name: str):
     """기업 관련 뉴스 크롤링"""
-    try:
+    try:    
         news_data = await selenium_manager.crawl_company_news(company_name)
         return {"news": news_data}
     except Exception as e:
@@ -209,7 +209,7 @@ async def get_company_financial_indicators(company_name: str):
 async def get_shareholder_data():
     """지분현황 JSON 데이터"""
     try:
-        with open("지분현황.json", "r", encoding="utf-8") as f:
+        with open("BACKEND/지분현황.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="지분현황 파일을 찾을 수 없습니다")
@@ -220,7 +220,7 @@ async def get_shareholder_data():
 async def get_financial_metrics():
     """기업별 재무지표 JSON 데이터 (recharts용)"""
     try:
-        with open("기업별_재무지표.json", "r", encoding="utf-8") as f:
+        with open("BACKEND/기업별_재무지표.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="재무지표 파일을 찾을 수 없습니다")
@@ -231,7 +231,7 @@ async def get_financial_metrics():
 async def get_industry_metrics():
     """산업별 지표 JSON 데이터"""
     try:
-        with open("industry_metrics.json", "r", encoding="utf-8") as f:
+        with open("BACKEND/industry_metrics.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="산업지표 파일을 찾을 수 없습니다")
@@ -242,7 +242,7 @@ async def get_industry_metrics():
 async def get_sales_data():
     """매출비중 차트 데이터 JSON"""
     try:
-        with open("매출비중_chartjs_데이터.json", "r", encoding="utf-8") as f:
+        with open("BACKEND/매출비중_chartjs_데이터.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="매출데이터 파일을 찾을 수 없습니다")

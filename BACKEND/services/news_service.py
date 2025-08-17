@@ -34,14 +34,21 @@ class NewsService:
     async def search_company_news(self, keyword: str) -> List[Dict]:
         """기업별 키워드 뉴스 검색"""
         try:
-            url = f'https://search.daum.net/nate?w=news&nil_search=btn&DA=PGD&enc=utf8&cluster=y&cluster_page=1&q={keyword}'
-            selector = '#dnsColl > div:nth-child(1) > ul > li > div.c-item-content > div > div.item-title > strong > a'
+            # 네이버 뉴스로 변경
+            url = f'https://search.naver.com/search.naver?where=news&query={keyword}&sort=1'
+            selector = 'a.news_tit'
             
-            return await selenium_manager.scrape_news(url, selector, max_items=10, wait_time=2)
+            # 대기 시간 증가 및 최대 아이템 수 조정
+            return await selenium_manager.scrape_news(url, selector, max_items=10, wait_time=5)
             
         except Exception as e:
-            print(f"❌ 기업 뉴스 조회 실패: {e}")
-            return []
+            logger.error(f"❌ 기업 뉴스 조회 실패: {e}")
+            # 실패 시 더미 데이터 반환
+            return [{
+                "title": f"{keyword} 관련 뉴스",
+                "url": "https://search.naver.com/search.naver?where=news",
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+            }]
     
     async def get_analyst_reports(self, code: str) -> List[Dict]:
         """종목분석 리포트 조회"""

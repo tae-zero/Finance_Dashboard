@@ -60,15 +60,27 @@ def _pick_real_chromedriver(installed_path: str) -> str:
 def build_chrome_options(headless: bool = True) -> Options:
     opts = Options()
     if headless:
-        opts.add_argument("--headless=new")
+        opts.add_argument("--headless=new")  # 최신 headless 모드
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
     opts.add_argument("--disable-extensions")
-    opts.add_argument("--window-size=1280,800")
+    opts.add_argument("--window-size=1920,1080")
     opts.add_argument("--remote-debugging-port=9222")
     opts.add_argument("--lang=ko-KR")
-
+    opts.add_argument("--disable-setuid-sandbox")  # 추가
+    opts.add_argument("--single-process")  # 추가
+    opts.add_argument("--disable-background-timer-throttling")  # 추가
+    opts.add_argument("--disable-backgrounding-occluded-windows")  # 추가
+    opts.add_argument("--disable-renderer-backgrounding")  # 추가
+    opts.add_argument("--disable-features=TranslateUI")  # 추가
+    opts.add_argument("--disable-ipc-flooding-protection")  # 추가
+    opts.add_argument("--memory-pressure-off")  # 추가
+    opts.add_argument("--max_old_space_size=4096")  # 추가
+    opts.add_argument("--log-level=3")  # 추가
+    opts.add_experimental_option('excludeSwitches', ['enable-logging'])  # 추가
+    
+    # Chrome 바이너리 위치 설정
     chrome_bin = os.getenv("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
     if os.path.exists(chrome_bin):
         opts.binary_location = chrome_bin
