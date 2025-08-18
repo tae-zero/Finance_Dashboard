@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # 백엔드 서비스
+  backend:
+    build:
+      context: ./BACKEND
+      dockerfile: Dockerfile
+    ports:
+      - "7000:7000"
+    environment:
+      - NODE_ENV=development
+      - PORT=7000
+      - HOST=0.0.0.0
+      - DEBUG=true
+    volumes:
+      - ./BACKEND:/app
+      - /app/node_modules
+    depends_on:
+      - mongodb
+    networks:
+      - finance-network
+
+  # 프론트엔드 서비스
+  frontend:
+    build:
+      context: ./FRONTEND
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:7000/api/v1
+    volumes:
+      - ./FRONTEND:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - finance-network
+
+  # MongoDB (개발용)
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password
+      - MONGO_INITDB_DATABASE=testDB
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - finance-network
+
+  # Redis (캐싱용)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - finance-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  finance-network:
+    driver: bridge
