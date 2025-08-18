@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
-// 브라우저에서는 무조건 상대 경로 사용 (환경변수 무시)
-const API_BASE_URL = '/api/v1';
+// 로컬 개발 환경에서는 백엔드 서버 직접 연결
+const API_BASE_URL = 'http://localhost:7000/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
