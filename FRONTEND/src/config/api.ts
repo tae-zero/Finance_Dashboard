@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
-// 로컬 개발 환경에서는 백엔드 서버 직접 연결
-const API_BASE_URL = 'http://localhost:7000/api/v1';
+// 프로덕션 환경에서는 Railway 백엔드 서버 연결
+const API_BASE_URL = 'https://financedashboard-production-50f3.up.railway.app/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
