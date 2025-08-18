@@ -34,6 +34,7 @@ def get_allowed_origins() -> list[str]:
     return [
         "https://finance-dashboard-git-main-jeongtaeyeongs-projects.vercel.app",
         "https://finance-dashboard.vercel.app",
+        "https://finance-dashboard-db3g1y3vz-jeongtaeyeongs-projects.vercel.app",
         "http://localhost:3000",
     ]
 
